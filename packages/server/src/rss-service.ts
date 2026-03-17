@@ -12,7 +12,14 @@ import type {
   PaginatedArticlesResult
 } from "./types.js";
 
-type MediaEntry = { $?: { url?: string; type?: string; medium?: string } };
+type MediaEntry = {
+  $?: { url?: string; type?: string; medium?: string };
+  url?: string;
+  type?: string;
+  medium?: string;
+};
+
+type MediaValue = MediaEntry | MediaEntry[] | string;
 
 type ParsedItem = {
   title?: string;
@@ -22,10 +29,27 @@ type ParsedItem = {
   contentSnippet?: string;
   pubDate?: string;
   enclosure?: { url?: string; type?: string };
+  image?: string;
+  mediaContent?: MediaValue;
+  mediaThumbnail?: MediaValue;
   "content:encoded"?: string;
-  "media:content"?: MediaEntry | MediaEntry[];
-  "media:thumbnail"?: MediaEntry | MediaEntry[];
+  "media:content"?: MediaValue;
+  "media:thumbnail"?: MediaValue;
 };
+
+const FEED_REQUEST_HEADERS = {
+  "user-agent": "Mozilla/5.0 (compatible; ObsidianNasRss/1.0; +https://github.com/kiryarya/obsidian_nas_rss)",
+  accept: "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+  "accept-language": "ja,en-US;q=0.9,en;q=0.8",
+  pragma: "no-cache",
+  "cache-control": "no-cache"
+} as const;
+
+const HTML_REQUEST_HEADERS = {
+  "user-agent": FEED_REQUEST_HEADERS["user-agent"],
+  accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "accept-language": FEED_REQUEST_HEADERS["accept-language"]
+} as const;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -65,38 +89,192 @@ function readAttribute(outlineTag: string, attributeName: string): string | unde
   return match?.[1] ? decodeXmlEntities(match[1].trim()) : undefined;
 }
 
-function extractImageUrl(item: ParsedItem): string | undefined {
-  if (item.enclosure?.url && item.enclosure.type?.startsWith("image")) {
-    return item.enclosure.url;
+function normalizeImageUrl(url: string | undefined, baseUrl?: string): string | undefined {
+  if (!url?.trim()) {
+    return undefined;
   }
 
-  const mediaContent = item["media:content"];
-  if (Array.isArray(mediaContent)) {
-    const first = mediaContent.find((entry) => entry.$?.url);
-    if (first?.$?.url) {
-      return first.$.url;
+  let normalized = url.trim();
+  if (normalized.startsWith("//")) {
+    normalized = `https:${normalized}`;
+  }
+
+  try {
+    normalized = baseUrl ? new URL(normalized, baseUrl).toString() : new URL(normalized).toString();
+  } catch {
+    return normalized.startsWith("http:") ? normalized.replace(/^http:/i, "https:") : normalized;
+  }
+
+  return normalized.startsWith("http:") ? normalized.replace(/^http:/i, "https:") : normalized;
+}
+
+function pickMediaUrl(value: MediaValue | undefined, baseUrl?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    return normalizeImageUrl(value, baseUrl);
+  }
+
+  const entries = Array.isArray(value) ? value : [value];
+  for (const entry of entries) {
+    const rawUrl = entry.$?.url ?? entry.url;
+    if (!rawUrl) {
+      continue;
     }
-  } else if (mediaContent?.$?.url) {
-    return mediaContent.$.url;
-  }
 
-  const mediaThumbnail = item["media:thumbnail"];
-  if (Array.isArray(mediaThumbnail)) {
-    const first = mediaThumbnail.find((entry) => entry.$?.url);
-    if (first?.$?.url) {
-      return first.$.url;
+    const mediaType = entry.$?.type ?? entry.type;
+    const mediaKind = entry.$?.medium ?? entry.medium;
+    if (mediaType && !mediaType.startsWith("image") && mediaKind !== "image") {
+      continue;
     }
-  } else if (mediaThumbnail?.$?.url) {
-    return mediaThumbnail.$.url;
+
+    return normalizeImageUrl(rawUrl, baseUrl);
   }
 
-  const html = item["content:encoded"] ?? item.content;
+  return undefined;
+}
+
+function extractHtmlImageUrl(html: string | undefined, baseUrl?: string): string | undefined {
   if (!html) {
     return undefined;
   }
 
   const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-  return match?.[1];
+  return normalizeImageUrl(match?.[1], baseUrl);
+}
+
+function looksLikeHtml(content: string, contentType: string): boolean {
+  const normalizedType = contentType.toLowerCase();
+  if (normalizedType.includes("text/html")) {
+    return true;
+  }
+
+  const normalizedBody = content.trim().toLowerCase();
+  if (!normalizedBody) {
+    return false;
+  }
+
+  return normalizedBody.startsWith("<!doctype html") || normalizedBody.startsWith("<html") || normalizedBody.includes("<html");
+}
+
+function parseMetaImageUrl(html: string, pageUrl: string): string | undefined {
+  const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
+  for (const tag of metaTags) {
+    const isTarget =
+      /(?:property|name)=["']og:image(?::secure_url)?["']/i.test(tag) ||
+      /(?:property|name)=["']twitter:image(?::src)?["']/i.test(tag);
+    if (!isTarget) {
+      continue;
+    }
+
+    const contentMatch = tag.match(/\bcontent=["']([^"']+)["']/i);
+    if (contentMatch?.[1]) {
+      return normalizeImageUrl(contentMatch[1], pageUrl);
+    }
+  }
+
+  return undefined;
+}
+
+function toIsoDate(value: string | undefined, fallback: string): string {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
+}
+
+function extractImageUrl(item: ParsedItem, articleUrl?: string): string | undefined {
+  if (item.enclosure?.url && item.enclosure.type?.startsWith("image")) {
+    return normalizeImageUrl(item.enclosure.url, articleUrl);
+  }
+
+  const fromMediaContent = pickMediaUrl(item.mediaContent, articleUrl) ?? pickMediaUrl(item["media:content"], articleUrl);
+  if (fromMediaContent) {
+    return fromMediaContent;
+  }
+
+  const fromMediaThumbnail = pickMediaUrl(item.mediaThumbnail, articleUrl) ?? pickMediaUrl(item["media:thumbnail"], articleUrl);
+  if (fromMediaThumbnail) {
+    return fromMediaThumbnail;
+  }
+
+  const fromItemImage = normalizeImageUrl(item.image, articleUrl);
+  if (fromItemImage) {
+    return fromItemImage;
+  }
+
+  const fromHtml = extractHtmlImageUrl(item["content:encoded"] ?? item.content, articleUrl);
+  if (fromHtml) {
+    return fromHtml;
+  }
+
+  const snippetImage = extractHtmlImageUrl(item.contentSnippet, articleUrl);
+  if (snippetImage) {
+    return snippetImage;
+  }
+
+  return undefined;
+}
+
+type OgImageCandidate = {
+  articleId: string;
+  articleUrl: string;
+};
+
+async function runInChunks<T>(values: T[], size: number, task: (value: T) => Promise<void>): Promise<void> {
+  for (let index = 0; index < values.length; index += size) {
+    const chunk = values.slice(index, index + size);
+    await Promise.all(chunk.map((value) => task(value)));
+  }
+}
+
+async function fetchText(url: string, headers: HeadersInit, timeoutMs: number): Promise<{ body: string; contentType: string }> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers,
+        redirect: "follow",
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return {
+        body: await response.text(),
+        contentType: response.headers.get("content-type") ?? ""
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+async function fetchFeedXml(url: string): Promise<string> {
+  const { body, contentType } = await fetchText(url, FEED_REQUEST_HEADERS, 15000);
+  if (looksLikeHtml(body, contentType)) {
+    throw new Error("RSS/XML ではなく HTML が返されました");
+  }
+
+  return body;
+}
+
+async function fetchOpenGraphImage(url: string): Promise<string | undefined> {
+  try {
+    const { body } = await fetchText(url, HTML_REQUEST_HEADERS, 5000);
+    return parseMetaImageUrl(body, url);
+  } catch {
+    return undefined;
+  }
 }
 
 export class RssService {
@@ -105,9 +283,12 @@ export class RssService {
     customFields: {
       item: [
         ["media:content", "media:content"],
+        ["media:content", "mediaContent"],
         ["media:thumbnail", "media:thumbnail"],
+        ["media:thumbnail", "mediaThumbnail"],
         ["enclosure", "enclosure"],
-        ["content:encoded", "content:encoded"]
+        ["content:encoded", "content:encoded"],
+        ["image", "image"]
       ]
     }
   });
@@ -520,14 +701,10 @@ export class RssService {
     }
 
     try {
-      const response = await fetch(feed.url);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const xml = await response.text();
+      const xml = await fetchFeedXml(feed.url);
       const parsed = await this.parser.parseString(xml);
       const fetchedAt = nowIso();
+      const ogImageCandidates: OgImageCandidate[] = [];
 
       await this.store.mutate((mutableState) => {
         const mutableFeed = mutableState.feeds.find((entry) => entry.id === feedId);
@@ -555,8 +732,8 @@ export class RssService {
 
           const articleId = createId(`article:${feedId}:${link}`);
           const existing = mutableState.articles.find((article) => article.id === articleId);
-          const imageUrl = extractImageUrl(item);
-          const publishedAt = item.pubDate ? new Date(item.pubDate).toISOString() : fetchedAt;
+          const imageUrl = extractImageUrl(item, link);
+          const publishedAt = toIsoDate(item.pubDate, fetchedAt);
 
           if (existing) {
             existing.title = title;
@@ -566,6 +743,12 @@ export class RssService {
             existing.contentHtml = item["content:encoded"] ?? item.content ?? existing.contentHtml;
             existing.imageUrl = imageUrl ?? existing.imageUrl;
             existing.updatedAt = fetchedAt;
+            if (!existing.imageUrl && !existing.isRead) {
+              ogImageCandidates.push({
+                articleId: existing.id,
+                articleUrl: existing.link
+              });
+            }
             continue;
           }
 
@@ -584,8 +767,47 @@ export class RssService {
             fetchedAt,
             updatedAt: fetchedAt
           });
+
+          if (!imageUrl) {
+            ogImageCandidates.push({
+              articleId,
+              articleUrl: link
+            });
+          }
         }
       });
+
+      const uniqueCandidates = Array.from(
+        new Map(
+          ogImageCandidates
+            .filter((candidate) => candidate.articleUrl)
+            .map((candidate) => [candidate.articleId, candidate])
+        ).values()
+      ).slice(0, 12);
+
+      if (uniqueCandidates.length > 0) {
+        const resolvedImages = new Map<string, string>();
+        await runInChunks(uniqueCandidates, 4, async (candidate) => {
+          const ogImageUrl = await fetchOpenGraphImage(candidate.articleUrl);
+          if (ogImageUrl) {
+            resolvedImages.set(candidate.articleId, ogImageUrl);
+          }
+        });
+
+        if (resolvedImages.size > 0) {
+          await this.store.mutate((mutableState) => {
+            for (const article of mutableState.articles) {
+              const ogImageUrl = resolvedImages.get(article.id);
+              if (!ogImageUrl || article.imageUrl) {
+                continue;
+              }
+
+              article.imageUrl = ogImageUrl;
+              article.updatedAt = fetchedAt;
+            }
+          });
+        }
+      }
     } catch (error) {
       await this.store.mutate((mutableState) => {
         const mutableFeed = mutableState.feeds.find((entry) => entry.id === feedId);

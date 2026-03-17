@@ -372,7 +372,7 @@ export class NasRssView extends ItemView {
 
   private renderSidebarFilters(parentEl: HTMLDivElement): void {
     const sectionEl = parentEl.createDiv({ cls: "nas-rss-sidebar-filters" });
-    this.renderSidebarFilterItem(sectionEl, "all", "すべての記事");
+    this.renderSidebarFilterItem(sectionEl, "all", "すべて");
     this.renderSidebarFilterItem(sectionEl, "read", "既読");
     this.renderSidebarFilterItem(sectionEl, "read-later", "後で読む");
     this.renderSidebarFilterItem(sectionEl, "unread", "未読");
@@ -711,7 +711,7 @@ export class NasRssView extends ItemView {
 
   private getSelectedSourceLabel(): string {
     if (this.state.selectedSource === "all") {
-      return "すべての記事";
+      return "すべて";
     }
     if (this.state.selectedSource === "read") {
       return "既読";
