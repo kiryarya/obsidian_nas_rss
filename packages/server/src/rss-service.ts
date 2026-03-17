@@ -162,16 +162,26 @@ function looksLikeHtml(content: string, contentType: string): boolean {
 function parseMetaImageUrl(html: string, pageUrl: string): string | undefined {
   const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
   for (const tag of metaTags) {
-    const isTarget =
-      /(?:property|name)=["']og:image(?::secure_url)?["']/i.test(tag) ||
-      /(?:property|name)=["']twitter:image(?::src)?["']/i.test(tag);
+    const attributeEntries = Array.from(tag.matchAll(/([^\s=/>]+)\s*=\s*["']([^"']*)["']/gi));
+    const attributes = new Map(
+      attributeEntries.map(([, key, value]) => [key.toLowerCase(), decodeXmlEntities(value)])
+    );
+    const propertyName = attributes.get("property") ?? attributes.get("name") ?? "";
+    const normalizedPropertyName = propertyName.toLowerCase();
+    const isTarget = [
+      "og:image",
+      "og:image:secure_url",
+      "twitter:image",
+      "twitter:image:src",
+      "thumbnail"
+    ].includes(normalizedPropertyName);
     if (!isTarget) {
       continue;
     }
 
-    const contentMatch = tag.match(/\bcontent=["']([^"']+)["']/i);
-    if (contentMatch?.[1]) {
-      return normalizeImageUrl(contentMatch[1], pageUrl);
+    const content = attributes.get("content");
+    if (content) {
+      return normalizeImageUrl(content, pageUrl);
     }
   }
 
@@ -783,7 +793,7 @@ export class RssService {
             .filter((candidate) => candidate.articleUrl)
             .map((candidate) => [candidate.articleId, candidate])
         ).values()
-      ).slice(0, 12);
+      ).slice(0, 30);
 
       if (uniqueCandidates.length > 0) {
         const resolvedImages = new Map<string, string>();

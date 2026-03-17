@@ -42,6 +42,20 @@ function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("ja-JP");
 }
 
+async function openInDefaultBrowser(url: string): Promise<void> {
+  const electronRequire = (window as Window & {
+    require?: (moduleName: string) => { shell?: { openExternal?: (targetUrl: string) => Promise<void> | void } };
+  }).require;
+
+  const openExternal = electronRequire?.("electron")?.shell?.openExternal;
+  if (openExternal) {
+    await openExternal(url);
+    return;
+  }
+
+  window.open(url, "_blank", "noopener");
+}
+
 export class NasRssView extends ItemView {
   private readonly noteManager: NoteManager;
   private state: ViewStateModel;
@@ -560,6 +574,12 @@ export class NasRssView extends ItemView {
       cardEl.onmousedown = (event) => {
         if (event.button === 1) {
           event.preventDefault();
+        }
+      };
+      cardEl.onauxclick = (event) => {
+        if (event.button === 1) {
+          event.preventDefault();
+          event.stopPropagation();
           void this.openArticle(article.id);
         }
       };
@@ -1121,7 +1141,7 @@ export class NasRssView extends ItemView {
       await this.markArticleRead(articleId);
     }
 
-    window.open(article.link, "_blank", "noopener");
+    await openInDefaultBrowser(article.link);
   }
 
   private async toggleReadLater(articleId: string): Promise<void> {
