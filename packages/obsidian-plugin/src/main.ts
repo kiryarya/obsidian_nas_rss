@@ -4,6 +4,30 @@ import { NasRssSettingsTab } from "./SettingsTab";
 import { DEFAULT_SETTINGS, type NasRssPluginSettings } from "./types";
 import { NAS_RSS_VIEW_TYPE, NasRssView } from "./views/RssView";
 
+function normalizeSettings(input: Partial<NasRssPluginSettings> | null | undefined): NasRssPluginSettings {
+  const merged: NasRssPluginSettings = {
+    ...DEFAULT_SETTINGS,
+    ...(input ?? {})
+  };
+
+  const autoRefreshMinutes = Number(merged.autoRefreshMinutes);
+  const itemsPerPage = Number(merged.itemsPerPage);
+  const cardMinWidth = Number(merged.cardMinWidth);
+
+  return {
+    ...merged,
+    autoRefreshMinutes: Number.isFinite(autoRefreshMinutes) && autoRefreshMinutes >= 0
+      ? Math.floor(autoRefreshMinutes)
+      : DEFAULT_SETTINGS.autoRefreshMinutes,
+    itemsPerPage: Number.isFinite(itemsPerPage) && itemsPerPage > 0
+      ? Math.floor(itemsPerPage)
+      : DEFAULT_SETTINGS.itemsPerPage,
+    cardMinWidth: Number.isFinite(cardMinWidth)
+      ? Math.min(520, Math.max(220, Math.round(cardMinWidth / 10) * 10))
+      : DEFAULT_SETTINGS.cardMinWidth
+  };
+}
+
 export default class NasRssViewerPlugin extends Plugin {
   settings: NasRssPluginSettings = DEFAULT_SETTINGS;
   apiClient = new NasRssApiClient(() => this.settings.serverBaseUrl);
@@ -51,10 +75,11 @@ export default class NasRssViewerPlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     const loaded = await this.loadData();
-    this.settings = { ...DEFAULT_SETTINGS, ...(loaded ?? {}) };
+    this.settings = normalizeSettings(loaded);
   }
 
   async saveSettings(): Promise<void> {
+    this.settings = normalizeSettings(this.settings);
     const snapshot = structuredClone(this.settings);
     this.settingsSaveQueue = this.settingsSaveQueue.then(() => this.saveData(snapshot));
     await this.settingsSaveQueue;

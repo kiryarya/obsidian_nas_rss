@@ -1,6 +1,8 @@
 import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type NasRssViewerPlugin from "./main";
 
+const ITEMS_PER_PAGE_OPTIONS = [20, 30, 50, 80, 100, 150, 200] as const;
+
 export class NasRssSettingsTab extends PluginSettingTab {
   constructor(
     app: App,
@@ -57,39 +59,42 @@ export class NasRssSettingsTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("1ページの記事数")
-      .setDesc("カード一覧を何件ずつ表示するかを設定します。次のページへ進むと、直前のページを既読にします。")
-      .addText((text) => {
-        text
-          .setPlaceholder("50")
+      .setDesc("カード一覧を何件ずつ表示するかを選びます。")
+      .addDropdown((dropdown) => {
+        for (const value of ITEMS_PER_PAGE_OPTIONS) {
+          dropdown.addOption(String(value), `${value}件`);
+        }
+
+        dropdown
           .setValue(String(this.plugin.settings.itemsPerPage))
           .onChange(async (value) => {
-            const parsed = Number(value);
-            if (!Number.isFinite(parsed) || parsed <= 0) {
-              return;
-            }
-            this.plugin.settings.itemsPerPage = Math.floor(parsed);
+            this.plugin.settings.itemsPerPage = Number(value);
             await this.plugin.saveSettings();
             await this.plugin.refreshOpenViews();
           });
       });
 
-    new Setting(containerEl)
+    const cardWidthSetting = new Setting(containerEl)
       .setName("カード幅")
-      .setDesc("カードビューの横幅をピクセル単位で調整します。大きくすると1行のカード数が減ります。")
-      .addText((text) => {
-        text
-          .setPlaceholder("280")
-          .setValue(String(this.plugin.settings.cardMinWidth))
-          .onChange(async (value) => {
-            const parsed = Number(value);
-            if (!Number.isFinite(parsed) || parsed < 220) {
-              return;
-            }
-            this.plugin.settings.cardMinWidth = Math.floor(parsed);
-            await this.plugin.saveSettings();
-            await this.plugin.refreshOpenViews();
-          });
-      });
+      .setDesc("カードビューの横幅を 10px 単位で調整します。");
+
+    cardWidthSetting.addSlider((slider) => {
+      slider
+        .setLimits(220, 520, 10)
+        .setValue(this.plugin.settings.cardMinWidth)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.plugin.settings.cardMinWidth = value;
+          valueDisplay.setText(`${value}px`);
+          await this.plugin.saveSettings();
+          await this.plugin.refreshOpenViews();
+        });
+    });
+
+    const valueDisplay = cardWidthSetting.controlEl.createSpan({
+      text: `${this.plugin.settings.cardMinWidth}px`
+    });
+    valueDisplay.addClass("nas-rss-settings-value");
 
     new Setting(containerEl)
       .setName("タイトル強調キーワード")
