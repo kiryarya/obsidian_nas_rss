@@ -51,6 +51,14 @@
   margin-bottom: 16px;
 }
 
+.nas-rss-sidebar-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin-bottom: 14px;
+}
+
 .nas-rss-sidebar-item,
 .nas-rss-group-label,
 .nas-rss-feed-item {
@@ -67,10 +75,15 @@
 }
 
 .nas-rss-sidebar-item {
-  padding: 10px 12px;
-  text-align: left;
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 10px;
+  text-align: center;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 0.78rem;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
 }
 
 .nas-rss-sidebar-item:hover,

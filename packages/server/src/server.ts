@@ -192,6 +192,7 @@ app.get("/api/articles", async (request, reply) => {
   const result = await rssService.listArticles({
     feedId: query.feedId,
     groupId: query.groupId,
+    readOnly: parseBoolean(query.readOnly),
     unreadOnly: parseBoolean(query.unreadOnly),
     readLaterOnly: parseBoolean(query.readLaterOnly),
     query: query.query,

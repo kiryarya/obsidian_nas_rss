@@ -50,6 +50,7 @@ export interface ServerState {
 export interface ArticleListFilters {
   feedId?: string;
   groupId?: string;
+  readOnly?: boolean;
   unreadOnly?: boolean;
   readLaterOnly?: boolean;
   query?: string;

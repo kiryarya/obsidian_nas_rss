@@ -142,6 +142,7 @@ export class RssService {
     const articles = state.articles
       .filter((article) => (filters.feedId ? article.feedId === filters.feedId : true))
       .filter((article) => (feedIdsInGroup ? feedIdsInGroup.has(article.feedId) : true))
+      .filter((article) => (filters.readOnly ? article.isRead : true))
       .filter((article) => (filters.unreadOnly ? !article.isRead : true))
       .filter((article) => (filters.readLaterOnly ? article.isReadLater : true))
       .filter((article) => {
@@ -161,7 +162,7 @@ export class RssService {
 
         return searchable.includes(normalizedQuery);
       })
-      .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt));
+      .sort((left, right) => new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime());
 
     const offset = Math.max(0, filters.offset ?? 0);
     const paged = typeof filters.limit === "number"

@@ -110,6 +110,7 @@ export class NasRssApiClient {
   async getArticles(options: {
     feedId?: string;
     groupId?: string;
+    readOnly?: boolean;
     unreadOnly?: boolean;
     readLaterOnly?: boolean;
     query?: string;
@@ -126,6 +127,9 @@ export class NasRssApiClient {
     }
     if (typeof options.unreadOnly === "boolean") {
       params.set("unreadOnly", String(options.unreadOnly));
+    }
+    if (typeof options.readOnly === "boolean") {
+      params.set("readOnly", String(options.readOnly));
     }
     if (typeof options.readLaterOnly === "boolean") {
       params.set("readLaterOnly", String(options.readLaterOnly));
