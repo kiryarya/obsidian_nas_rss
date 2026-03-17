@@ -73,6 +73,15 @@ export interface BulkReadResult {
   updatedCount: number;
 }
 
+export interface FilteredReadRequest {
+  feedId?: string;
+  groupId?: string;
+  readOnly?: boolean;
+  unreadOnly?: boolean;
+  readLaterOnly?: boolean;
+  query?: string;
+}
+
 export const DEFAULT_STATE: ServerState = {
   feeds: [],
   groups: [],

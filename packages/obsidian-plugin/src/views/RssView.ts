@@ -384,7 +384,7 @@ export class NasRssView extends ItemView {
     label: string
   ): void {
     const button = parentEl.createEl("button", {
-      cls: `nas-rss-sidebar-item ${this.state.selectedSource === source ? "is-active" : ""}`,
+      cls: `nas-rss-sidebar-item nas-rss-filter-chip ${this.state.selectedSource === source ? "is-active" : ""}`,
       text: label
     });
     button.onclick = () => {
@@ -494,6 +494,16 @@ export class NasRssView extends ItemView {
     markAllReadButton.onclick = async () => {
       await this.handleMarkDisplayedRead();
     };
+
+    if (this.state.selectedSource === "unread") {
+      const markUnreadAllReadButton = actionsEl.createEl("button", {
+        cls: "nas-rss-secondary-button",
+        text: "未読をすべて既読"
+      });
+      markUnreadAllReadButton.onclick = async () => {
+        await this.handleMarkAllUnreadRead();
+      };
+    }
 
     const importButton = actionsEl.createEl("button", {
       cls: "nas-rss-secondary-button",
@@ -1015,6 +1025,23 @@ export class NasRssView extends ItemView {
       this.render();
     } catch (error) {
       new Notice(`一括既読に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async handleMarkAllUnreadRead(): Promise<void> {
+    try {
+      const query = this.state.searchQuery.trim() || undefined;
+      const result = await this.plugin.apiClient.setReadFiltered({
+        isRead: true,
+        unreadOnly: true,
+        query
+      });
+      this.resetUnreadSession();
+      this.state.currentPage = 1;
+      new Notice(`${result.updatedCount} 件の未読を既読にしました。`);
+      await this.refresh();
+    } catch (error) {
+      new Notice(`未読の一括既読に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

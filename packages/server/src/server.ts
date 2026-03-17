@@ -269,6 +269,34 @@ app.post("/api/articles/read-bulk", async (request, reply) => {
   };
 });
 
+app.post("/api/articles/read-filtered", async (request, reply) => {
+  const body = (request.body ?? {}) as {
+    isRead?: boolean;
+    feedId?: string;
+    groupId?: string;
+    readOnly?: boolean;
+    unreadOnly?: boolean;
+    readLaterOnly?: boolean;
+    query?: string;
+  };
+
+  if (typeof body.isRead !== "boolean") {
+    reply.status(400);
+    return { message: "isRead を指定してください。" };
+  }
+
+  return {
+    result: await rssService.markFilteredArticlesRead({
+      feedId: body.feedId,
+      groupId: body.groupId,
+      readOnly: body.readOnly,
+      unreadOnly: body.unreadOnly,
+      readLaterOnly: body.readLaterOnly,
+      query: body.query
+    }, body.isRead)
+  };
+});
+
 const stopAutoRefresh = rssService.createAutoRefreshTask();
 
 const closeApp = async (): Promise<void> => {

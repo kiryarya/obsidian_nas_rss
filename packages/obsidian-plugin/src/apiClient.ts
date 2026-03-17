@@ -184,6 +184,23 @@ export class NasRssApiClient {
     return response.result;
   }
 
+  async setReadFiltered(options: {
+    isRead: boolean;
+    feedId?: string;
+    groupId?: string;
+    readOnly?: boolean;
+    unreadOnly?: boolean;
+    readLaterOnly?: boolean;
+    query?: string;
+  }): Promise<BulkReadResult> {
+    const response = await this.requestJson<{ result: BulkReadResult }>({
+      method: "POST",
+      path: "/api/articles/read-filtered",
+      body: options
+    });
+    return response.result;
+  }
+
   async exportOpml(): Promise<string> {
     const baseUrl = this.getBaseUrl().replace(/\/$/, "");
     const response = await requestUrl({

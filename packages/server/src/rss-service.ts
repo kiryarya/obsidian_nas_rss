@@ -3,6 +3,7 @@ import Parser from "rss-parser";
 import type { StateStore } from "./store.js";
 import type {
   BulkReadResult,
+  FilteredReadRequest,
   ArticleListFilters,
   ArticleRecord,
   FeedGroupRecord,
@@ -430,6 +431,16 @@ export class RssService {
     });
 
     return { updatedCount };
+  }
+
+  async markFilteredArticlesRead(filters: FilteredReadRequest, isRead: boolean): Promise<BulkReadResult> {
+    const result = await this.listArticles({
+      ...filters
+    });
+    return this.markArticlesRead(
+      result.articles.map((article) => article.id),
+      isRead
+    );
   }
 
   async markArticleReadLater(articleId: string, isReadLater: boolean): Promise<ArticleRecord> {

@@ -55,7 +55,7 @@
   display: flex;
   gap: 6px;
   flex-wrap: nowrap;
-  overflow-x: auto;
+  overflow: hidden;
   margin-bottom: 14px;
 }
 
@@ -84,6 +84,15 @@
   font-size: 0.78rem;
   border: 1px solid var(--background-modifier-border);
   background: var(--background-primary);
+}
+
+.nas-rss-filter-chip {
+  width: auto;
+  min-width: 0;
+  white-space: nowrap;
+  padding: 0 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0;
 }
 
 .nas-rss-sidebar-item:hover,
