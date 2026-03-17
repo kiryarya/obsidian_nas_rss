@@ -36,6 +36,11 @@ export interface ArticleDto {
   updatedAt: string;
 }
 
+export interface ArticlePageDto {
+  articles: ArticleDto[];
+  total: number;
+}
+
 export interface NasRssPluginSettings {
   serverBaseUrl: string;
   autoRefreshMinutes: number;

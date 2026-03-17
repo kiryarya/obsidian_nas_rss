@@ -1,7 +1,7 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf } from "obsidian";
 import { NoteManager } from "../NoteManager";
 import type NasRssViewerPlugin from "../main";
-import type { ArticleDto, FeedDto, FeedGroupDto, RefreshJobDto } from "../types";
+import type { ArticleDto, ArticlePageDto, FeedDto, FeedGroupDto, RefreshJobDto } from "../types";
 
 export const NAS_RSS_VIEW_TYPE = "nas-rss-view";
 
@@ -11,6 +11,7 @@ interface ViewStateModel {
   feeds: FeedDto[];
   groups: FeedGroupDto[];
   articles: ArticleDto[];
+  totalArticles: number;
   selectedSource: SourceFilter;
   searchQuery: string;
   currentPage: number;
@@ -59,6 +60,7 @@ export class NasRssView extends ItemView {
       feeds: [],
       groups: [],
       articles: [],
+      totalArticles: 0,
       selectedSource: plugin.settings.unreadOnlyDefault ? "unread" : "all",
       searchQuery: "",
       currentPage: 1,
@@ -93,7 +95,7 @@ export class NasRssView extends ItemView {
     this.render();
 
     try {
-      const [feeds, articles, groups, refreshJob] = await Promise.all([
+      const [feeds, articlePage, groups, refreshJob] = await Promise.all([
         this.plugin.apiClient.getFeeds(),
         this.loadArticlesForSelection(),
         this.loadGroupsSafely(),
@@ -103,7 +105,8 @@ export class NasRssView extends ItemView {
       const existingCollapsed = new Set(this.state.collapsedGroupIds);
       this.state.feeds = feeds;
       this.state.groups = groups;
-      this.state.articles = articles;
+      this.state.articles = articlePage.articles;
+      this.state.totalArticles = articlePage.total;
       this.state.refreshJob = refreshJob;
       this.state.collapsedGroupIds = new Set(
         groups
@@ -118,7 +121,15 @@ export class NasRssView extends ItemView {
       }
 
       this.ensureSelectedSourceStillExists();
-      this.state.currentPage = this.normalizePage(this.state.currentPage, this.getVisibleArticles().length);
+      const normalizedPage = this.normalizePage(this.state.currentPage, this.state.totalArticles);
+      if (normalizedPage !== this.state.currentPage && this.state.totalArticles > 0) {
+        this.state.currentPage = normalizedPage;
+        const correctedPage = await this.loadArticlesForSelection();
+        this.state.articles = correctedPage.articles;
+        this.state.totalArticles = correctedPage.total;
+      } else {
+        this.state.currentPage = normalizedPage;
+      }
     } catch (error) {
       this.state.error = error instanceof Error ? error.message : String(error);
     } finally {
@@ -127,39 +138,53 @@ export class NasRssView extends ItemView {
     }
   }
 
-  private async loadArticlesForSelection(): Promise<ArticleDto[]> {
+  private async loadArticlesForSelection(): Promise<ArticlePageDto> {
     const selectedFeedId = this.getSelectedFeedId();
     const selectedGroupId = this.getSelectedGroupId();
+    const limit = this.getItemsPerPage();
+    const offset = (this.normalizePage(this.state.currentPage, this.state.totalArticles || limit) - 1) * limit;
+    const query = this.state.searchQuery.trim() || undefined;
 
     if (this.state.selectedSource === "unread") {
       return this.plugin.apiClient.getArticles({
         unreadOnly: true,
-        limit: 500
+        query,
+        offset,
+        limit
       });
     }
 
     if (this.state.selectedSource === "read-later") {
       return this.plugin.apiClient.getArticles({
         readLaterOnly: true,
-        limit: 500
+        query,
+        offset,
+        limit
       });
     }
 
     if (selectedFeedId) {
       return this.plugin.apiClient.getArticles({
         feedId: selectedFeedId,
-        limit: 500
+        query,
+        offset,
+        limit
       });
     }
 
     if (selectedGroupId) {
       return this.plugin.apiClient.getArticles({
-        limit: 700
+        groupId: selectedGroupId,
+        query,
+        offset,
+        limit
       });
     }
 
     return this.plugin.apiClient.getArticles({
-      limit: 700
+      query,
+      offset,
+      limit
     });
   }
 
@@ -376,11 +401,11 @@ export class NasRssView extends ItemView {
     });
 
     const visibleArticles = this.getVisibleArticles();
-    const pageState = this.getPageState(visibleArticles);
-    this.state.currentPage = pageState.currentPage;
+    const totalPages = Math.max(1, Math.ceil(this.state.totalArticles / this.getItemsPerPage()));
+    this.state.currentPage = this.normalizePage(this.state.currentPage, this.state.totalArticles);
     headingEl.createDiv({
       cls: "nas-rss-toolbar-subtitle",
-      text: `${visibleArticles.length} 件 / ${pageState.currentPage} / ${pageState.totalPages} ページ`
+      text: `${this.state.totalArticles} 件 / ${this.state.currentPage} / ${totalPages} ページ`
     });
 
     const searchWrapEl = toolbarEl.createDiv({ cls: "nas-rss-search-wrap" });
@@ -394,7 +419,7 @@ export class NasRssView extends ItemView {
       this.state.searchQuery = searchInput.value;
       this.state.currentPage = 1;
       this.articleScrollTop = 0;
-      this.render();
+      void this.refresh();
     };
 
     const actionsEl = mainEl.createDiv({ cls: "nas-rss-toolbar-actions" });
@@ -458,7 +483,7 @@ export class NasRssView extends ItemView {
 
     const gridEl = contentEl.createDiv({ cls: "nas-rss-card-grid" });
 
-    for (const article of pageState.pageArticles) {
+    for (const article of visibleArticles) {
       const feed = this.state.feeds.find((entry) => entry.id === article.feedId);
       const cardEl = gridEl.createDiv({
         cls: `nas-rss-card ${article.isRead ? "is-read" : "is-unread"}`
@@ -534,64 +559,36 @@ export class NasRssView extends ItemView {
       contentEl.scrollTop = this.articleScrollTop;
     }, 0);
 
-    if (pageState.totalPages > 1) {
+    if (totalPages > 1) {
       const paginationEl = mainEl.createDiv({ cls: "nas-rss-pagination" });
 
       const prevButton = paginationEl.createEl("button", {
         cls: "nas-rss-secondary-button",
         text: "前のページ"
       });
-      prevButton.disabled = pageState.currentPage <= 1;
+      prevButton.disabled = this.state.currentPage <= 1;
       prevButton.onclick = async () => {
         await this.moveToPreviousPage();
       };
 
       paginationEl.createDiv({
         cls: "nas-rss-pagination-label",
-        text: `${pageState.currentPage} / ${pageState.totalPages} ページ`
+        text: `${this.state.currentPage} / ${totalPages} ページ`
       });
 
       const nextButton = paginationEl.createEl("button", {
         cls: "nas-rss-primary-button",
         text: "次のページ"
       });
-      nextButton.disabled = pageState.currentPage >= pageState.totalPages;
+      nextButton.disabled = this.state.currentPage >= totalPages;
       nextButton.onclick = async () => {
-        await this.moveToNextPage(pageState.pageArticles);
+        await this.moveToNextPage(visibleArticles);
       };
     }
   }
 
   private getVisibleArticles(): ArticleDto[] {
-    const selectedGroupId = this.getSelectedGroupId();
-    const query = this.state.searchQuery.trim().toLowerCase();
-
-    return this.state.articles.filter((article) => {
-      if (selectedGroupId) {
-        const feed = this.state.feeds.find((entry) => entry.id === article.feedId);
-        if (!feed || feed.groupId !== selectedGroupId) {
-          return false;
-        }
-      }
-
-      if (!query) {
-        return true;
-      }
-
-      const feed = this.state.feeds.find((entry) => entry.id === article.feedId);
-      const searchable = [
-        article.title,
-        article.author,
-        article.snippet,
-        stripHtml(article.contentHtml),
-        feed?.title
-      ]
-        .filter((value): value is string => Boolean(value))
-        .join(" ")
-        .toLowerCase();
-
-      return searchable.includes(query);
-    });
+    return this.state.articles;
   }
 
   private getItemsPerPage(): number {
@@ -602,24 +599,6 @@ export class NasRssView extends ItemView {
   private normalizePage(page: number, totalItems: number): number {
     const totalPages = Math.max(1, Math.ceil(totalItems / this.getItemsPerPage()));
     return Math.min(Math.max(1, page), totalPages);
-  }
-
-  private getPageState(articles: ArticleDto[]): {
-    currentPage: number;
-    totalPages: number;
-    pageArticles: ArticleDto[];
-  } {
-    const pageSize = this.getItemsPerPage();
-    const totalPages = Math.max(1, Math.ceil(articles.length / pageSize));
-    const currentPage = this.normalizePage(this.state.currentPage, articles.length);
-    const startIndex = (currentPage - 1) * pageSize;
-    const pageArticles = articles.slice(startIndex, startIndex + pageSize);
-
-    return {
-      currentPage,
-      totalPages,
-      pageArticles
-    };
   }
 
   private getSelectedFeedId(): string | undefined {
@@ -938,7 +917,7 @@ export class NasRssView extends ItemView {
   }
 
   private async handleMarkDisplayedRead(): Promise<void> {
-    const targetIds = this.getPageState(this.getVisibleArticles()).pageArticles
+    const targetIds = this.getVisibleArticles()
       .filter((article) => !article.isRead)
       .map((article) => article.id);
 
@@ -959,7 +938,7 @@ export class NasRssView extends ItemView {
   private async moveToPreviousPage(): Promise<void> {
     this.state.currentPage = Math.max(1, this.state.currentPage - 1);
     this.articleScrollTop = 0;
-    this.render();
+    await this.refresh();
   }
 
   private async moveToNextPage(currentPageArticles: ArticleDto[]): Promise<void> {
@@ -972,14 +951,14 @@ export class NasRssView extends ItemView {
     }
 
     if (this.state.selectedSource === "unread") {
-      this.state.currentPage = this.normalizePage(this.state.currentPage, this.getVisibleArticles().length);
+      this.state.currentPage = this.normalizePage(this.state.currentPage, this.state.totalArticles);
     } else {
       this.state.currentPage += 1;
-      this.state.currentPage = this.normalizePage(this.state.currentPage, this.getVisibleArticles().length);
+      this.state.currentPage = this.normalizePage(this.state.currentPage, this.state.totalArticles);
     }
 
     this.articleScrollTop = 0;
-    this.render();
+    await this.refresh();
   }
 
   private async openArticle(articleId: string): Promise<void> {
@@ -1096,8 +1075,13 @@ export class NasRssView extends ItemView {
 
     await this.plugin.apiClient.setReadBulk(articleIds, isRead);
     const idSet = new Set(articleIds);
+    const removedCount = this.state.articles.filter((article) => idSet.has(article.id) && !article.isRead && isRead).length;
     this.state.articles = this.state.articles
       .map((article) => (idSet.has(article.id) ? { ...article, isRead } : article))
       .filter((article) => !(this.state.selectedSource === "unread" && article.isRead));
+    if (this.state.selectedSource === "unread" && isRead) {
+      this.state.totalArticles = Math.max(0, this.state.totalArticles - removedCount);
+      this.state.currentPage = this.normalizePage(this.state.currentPage, this.state.totalArticles);
+    }
   }
 }

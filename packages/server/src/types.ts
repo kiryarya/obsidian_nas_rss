@@ -49,9 +49,17 @@ export interface ServerState {
 
 export interface ArticleListFilters {
   feedId?: string;
+  groupId?: string;
   unreadOnly?: boolean;
   readLaterOnly?: boolean;
+  query?: string;
+  offset?: number;
   limit?: number;
+}
+
+export interface PaginatedArticlesResult {
+  articles: ArticleRecord[];
+  total: number;
 }
 
 export interface OpmlImportResult {

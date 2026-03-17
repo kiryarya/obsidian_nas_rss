@@ -1,5 +1,6 @@
 import { requestUrl } from "obsidian";
 import type {
+  ArticlePageDto,
   ArticleDto,
   BulkReadResult,
   FeedDto,
@@ -108,14 +109,20 @@ export class NasRssApiClient {
 
   async getArticles(options: {
     feedId?: string;
+    groupId?: string;
     unreadOnly?: boolean;
     readLaterOnly?: boolean;
+    query?: string;
+    offset?: number;
     limit?: number;
-  }): Promise<ArticleDto[]> {
+  }): Promise<ArticlePageDto> {
     const params = new URLSearchParams();
 
     if (options.feedId) {
       params.set("feedId", options.feedId);
+    }
+    if (options.groupId) {
+      params.set("groupId", options.groupId);
     }
     if (typeof options.unreadOnly === "boolean") {
       params.set("unreadOnly", String(options.unreadOnly));
@@ -123,14 +130,20 @@ export class NasRssApiClient {
     if (typeof options.readLaterOnly === "boolean") {
       params.set("readLaterOnly", String(options.readLaterOnly));
     }
+    if (options.query) {
+      params.set("query", options.query);
+    }
+    if (typeof options.offset === "number") {
+      params.set("offset", String(options.offset));
+    }
     if (typeof options.limit === "number") {
       params.set("limit", String(options.limit));
     }
 
-    const response = await this.requestJson<{ articles: ArticleDto[] }>({
+    const response = await this.requestJson<ArticlePageDto>({
       path: `/api/articles${params.size > 0 ? `?${params.toString()}` : ""}`
     });
-    return response.articles;
+    return response;
   }
 
   async getArticle(articleId: string): Promise<ArticleDto> {

@@ -7,7 +7,8 @@ import type {
   ArticleRecord,
   FeedGroupRecord,
   FeedRecord,
-  OpmlImportResult
+  OpmlImportResult,
+  PaginatedArticlesResult
 } from "./types.js";
 
 type MediaEntry = { $?: { url?: string; type?: string; medium?: string } };
@@ -98,6 +99,7 @@ function extractImageUrl(item: ParsedItem): string | undefined {
 }
 
 export class RssService {
+  private lastCleanupAt = 0;
   private readonly parser = new Parser({
     customFields: {
       item: [
@@ -111,7 +113,8 @@ export class RssService {
 
   constructor(
     private readonly store: StateStore,
-    private readonly refreshIntervalMinutes: number
+    private readonly refreshIntervalMinutes: number,
+    private readonly readRetentionDays: number
   ) {}
 
   async listGroups(): Promise<FeedGroupRecord[]> {
@@ -124,15 +127,51 @@ export class RssService {
     return state.feeds.slice().sort((left, right) => left.title.localeCompare(right.title, "ja"));
   }
 
-  async listArticles(filters: ArticleListFilters = {}): Promise<ArticleRecord[]> {
+  async listArticles(filters: ArticleListFilters = {}): Promise<PaginatedArticlesResult> {
+    await this.maybeCleanupReadArticles();
     const state = await this.store.read();
+    const normalizedQuery = filters.query?.trim().toLowerCase();
+    const feedIdsInGroup = filters.groupId
+      ? new Set(
+        state.feeds
+          .filter((feed) => feed.groupId === filters.groupId)
+          .map((feed) => feed.id)
+      )
+      : undefined;
+
     const articles = state.articles
       .filter((article) => (filters.feedId ? article.feedId === filters.feedId : true))
+      .filter((article) => (feedIdsInGroup ? feedIdsInGroup.has(article.feedId) : true))
       .filter((article) => (filters.unreadOnly ? !article.isRead : true))
       .filter((article) => (filters.readLaterOnly ? article.isReadLater : true))
+      .filter((article) => {
+        if (!normalizedQuery) {
+          return true;
+        }
+
+        const searchable = [
+          article.title,
+          article.author,
+          article.snippet,
+          article.contentHtml
+        ]
+          .filter((value): value is string => Boolean(value))
+          .join(" ")
+          .toLowerCase();
+
+        return searchable.includes(normalizedQuery);
+      })
       .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt));
 
-    return filters.limit ? articles.slice(0, filters.limit) : articles;
+    const offset = Math.max(0, filters.offset ?? 0);
+    const paged = typeof filters.limit === "number"
+      ? articles.slice(offset, offset + filters.limit)
+      : articles.slice(offset);
+
+    return {
+      articles: paged,
+      total: articles.length
+    };
   }
 
   async getArticle(articleId: string): Promise<ArticleRecord | undefined> {
@@ -410,6 +449,7 @@ export class RssService {
   }
 
   async refreshFeeds(feedId?: string): Promise<FeedRecord[]> {
+    await this.maybeCleanupReadArticles();
     const state = await this.store.read();
     const targetFeeds = feedId
       ? state.feeds.filter((feed) => feed.id === feedId)
@@ -434,6 +474,30 @@ export class RssService {
     }, this.refreshIntervalMinutes * 60 * 1000);
 
     return () => clearInterval(interval);
+  }
+
+  private async maybeCleanupReadArticles(force = false): Promise<void> {
+    if (this.readRetentionDays <= 0) {
+      return;
+    }
+
+    const now = Date.now();
+    const cleanupIntervalMs = 6 * 60 * 60 * 1000;
+    if (!force && now - this.lastCleanupAt < cleanupIntervalMs) {
+      return;
+    }
+
+    const cutoffTime = now - this.readRetentionDays * 24 * 60 * 60 * 1000;
+    await this.store.mutate((state) => {
+      state.articles = state.articles.filter((article) => {
+        if (!article.isRead) {
+          return true;
+        }
+
+        return new Date(article.updatedAt).getTime() >= cutoffTime;
+      });
+    });
+    this.lastCleanupAt = now;
   }
 
   private async refreshSingleFeed(feedId: string): Promise<void> {

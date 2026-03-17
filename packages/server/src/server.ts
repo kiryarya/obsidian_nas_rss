@@ -21,7 +21,11 @@ function parseBoolean(value: unknown): boolean | undefined {
 }
 
 const store = new StateStore(serverConfig.dataFilePath);
-const rssService = new RssService(store, serverConfig.refreshIntervalMinutes);
+const rssService = new RssService(
+  store,
+  serverConfig.refreshIntervalMinutes,
+  serverConfig.readRetentionDays
+);
 const refreshJobManager = new RefreshJobManager();
 const app = Fastify({ logger: true });
 
@@ -29,28 +33,21 @@ await app.register(cors, {
   origin: true
 });
 
-app.get("/health", async () => {
-  return {
-    status: "ok",
-    time: new Date().toISOString()
-  };
-});
+app.get("/health", async () => ({
+  status: "ok",
+  time: new Date().toISOString()
+}));
 
-app.get("/api/feeds", async () => {
-  return {
-    feeds: await rssService.listFeeds()
-  };
-});
+app.get("/api/feeds", async () => ({
+  feeds: await rssService.listFeeds()
+}));
 
-app.get("/api/groups", async () => {
-  return {
-    groups: await rssService.listGroups()
-  };
-});
+app.get("/api/groups", async () => ({
+  groups: await rssService.listGroups()
+}));
 
 app.post("/api/groups", async (request, reply) => {
   const body = (request.body ?? {}) as { name?: string };
-
   if (!body.name) {
     reply.status(400);
     return { message: "name は必須です。" };
@@ -69,7 +66,6 @@ app.post("/api/groups", async (request, reply) => {
 app.patch("/api/groups/:groupId", async (request, reply) => {
   const params = request.params as { groupId: string };
   const body = (request.body ?? {}) as { name?: string };
-
   if (!body.name) {
     reply.status(400);
     return { message: "name は必須です。" };
@@ -98,7 +94,7 @@ app.delete("/api/groups/:groupId", async (request, reply) => {
   }
 });
 
-app.get("/api/feeds/export-opml", async (request, reply) => {
+app.get("/api/feeds/export-opml", async (_request, reply) => {
   const content = await rssService.exportOpml();
   reply.header("Content-Type", "application/xml; charset=utf-8");
   return content;
@@ -106,7 +102,6 @@ app.get("/api/feeds/export-opml", async (request, reply) => {
 
 app.post("/api/feeds", async (request, reply) => {
   const body = (request.body ?? {}) as { url?: string; title?: string };
-
   if (!body.url) {
     reply.status(400);
     return { message: "url は必須です。" };
@@ -124,10 +119,9 @@ app.post("/api/feeds", async (request, reply) => {
 
 app.post("/api/feeds/import-opml", async (request, reply) => {
   const body = (request.body ?? {}) as { content?: string };
-
   if (!body.content || typeof body.content !== "string") {
     reply.status(400);
-    return { message: "content は OPML 文字列で指定してください。" };
+    return { message: "content に OPML 文字列を指定してください。" };
   }
 
   try {
@@ -161,11 +155,9 @@ app.post("/api/feeds/:feedId/group", async (request, reply) => {
   }
 });
 
-app.get("/api/feeds/refresh-status", async () => {
-  return {
-    job: refreshJobManager.getCurrentJob()
-  };
-});
+app.get("/api/feeds/refresh-status", async () => ({
+  job: refreshJobManager.getCurrentJob()
+}));
 
 app.post("/api/feeds/refresh", async (request) => {
   const body = (request.body ?? {}) as { feedId?: string };
@@ -179,27 +171,37 @@ app.post("/api/feeds/refresh", async (request) => {
       refreshJobManager.failJob(error instanceof Error ? error.message : String(error));
     });
 
-  return {
-    job
-  };
+  return { job };
 });
 
 app.get("/api/articles", async (request, reply) => {
   const query = request.query as Record<string, string | undefined>;
   const limit = query.limit ? Number(query.limit) : undefined;
+  const offset = query.offset ? Number(query.offset) : undefined;
 
   if (query.limit && !Number.isFinite(limit)) {
     reply.status(400);
     return { message: "limit は数値で指定してください。" };
   }
 
+  if (query.offset && !Number.isFinite(offset)) {
+    reply.status(400);
+    return { message: "offset は数値で指定してください。" };
+  }
+
+  const result = await rssService.listArticles({
+    feedId: query.feedId,
+    groupId: query.groupId,
+    unreadOnly: parseBoolean(query.unreadOnly),
+    readLaterOnly: parseBoolean(query.readLaterOnly),
+    query: query.query,
+    offset,
+    limit
+  });
+
   return {
-    articles: await rssService.listArticles({
-      feedId: query.feedId,
-      unreadOnly: parseBoolean(query.unreadOnly),
-      readLaterOnly: parseBoolean(query.readLaterOnly),
-      limit
-    })
+    articles: result.articles,
+    total: result.total
   };
 });
 
