@@ -46,6 +46,7 @@ export interface NasRssPluginSettings {
   autoRefreshMinutes: number;
   unreadOnlyDefault: boolean;
   itemsPerPage: number;
+  cardMinWidth: number;
   highlightKeywords: string[];
   saveFolderPath: string;
   saveTemplate: string;
@@ -75,6 +76,7 @@ export const DEFAULT_SETTINGS: NasRssPluginSettings = {
   autoRefreshMinutes: 5,
   unreadOnlyDefault: true,
   itemsPerPage: 50,
+  cardMinWidth: 280,
   highlightKeywords: [],
   saveFolderPath: "RSS",
   saveTemplate: `---

@@ -66,6 +66,22 @@ export class NasRssSettingsTab extends PluginSettingTab {
             const parsed = Number(value);
             this.plugin.settings.itemsPerPage = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 50;
             await this.plugin.saveSettings();
+            await this.plugin.refreshOpenViews();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("カード幅")
+      .setDesc("カードビューの横幅をピクセル単位で調整します。大きくすると1行のカード数が減ります。")
+      .addText((text) => {
+        text
+          .setPlaceholder("280")
+          .setValue(String(this.plugin.settings.cardMinWidth))
+          .onChange(async (value) => {
+            const parsed = Number(value);
+            this.plugin.settings.cardMinWidth = Number.isFinite(parsed) && parsed >= 220 ? Math.floor(parsed) : 280;
+            await this.plugin.saveSettings();
+            await this.plugin.refreshOpenViews();
           });
       });
 
