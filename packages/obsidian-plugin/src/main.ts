@@ -8,6 +8,7 @@ export default class NasRssViewerPlugin extends Plugin {
   settings: NasRssPluginSettings = DEFAULT_SETTINGS;
   apiClient = new NasRssApiClient(() => this.settings.serverBaseUrl);
   private autoRefreshIntervalId: number | null = null;
+  private settingsSaveQueue: Promise<void> = Promise.resolve();
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -54,7 +55,9 @@ export default class NasRssViewerPlugin extends Plugin {
   }
 
   async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+    const snapshot = structuredClone(this.settings);
+    this.settingsSaveQueue = this.settingsSaveQueue.then(() => this.saveData(snapshot));
+    await this.settingsSaveQueue;
   }
 
   resetAutoRefresh(): void {

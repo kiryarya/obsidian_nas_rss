@@ -64,7 +64,10 @@ export class NasRssSettingsTab extends PluginSettingTab {
           .setValue(String(this.plugin.settings.itemsPerPage))
           .onChange(async (value) => {
             const parsed = Number(value);
-            this.plugin.settings.itemsPerPage = Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 50;
+            if (!Number.isFinite(parsed) || parsed <= 0) {
+              return;
+            }
+            this.plugin.settings.itemsPerPage = Math.floor(parsed);
             await this.plugin.saveSettings();
             await this.plugin.refreshOpenViews();
           });
@@ -79,7 +82,10 @@ export class NasRssSettingsTab extends PluginSettingTab {
           .setValue(String(this.plugin.settings.cardMinWidth))
           .onChange(async (value) => {
             const parsed = Number(value);
-            this.plugin.settings.cardMinWidth = Number.isFinite(parsed) && parsed >= 220 ? Math.floor(parsed) : 280;
+            if (!Number.isFinite(parsed) || parsed < 220) {
+              return;
+            }
+            this.plugin.settings.cardMinWidth = Math.floor(parsed);
             await this.plugin.saveSettings();
             await this.plugin.refreshOpenViews();
           });

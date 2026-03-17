@@ -286,13 +286,15 @@
 }
 
 .nas-rss-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--nas-rss-card-width)), var(--nas-rss-card-width)));
-  justify-content: start;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
   gap: 18px;
 }
 
 .nas-rss-card {
+  flex: 0 1 var(--nas-rss-card-width);
+  width: min(100%, var(--nas-rss-card-width));
   display: flex;
   flex-direction: column;
   min-height: 350px;
