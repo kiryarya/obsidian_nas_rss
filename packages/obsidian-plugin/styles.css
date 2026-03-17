@@ -1,6 +1,6 @@
 .nas-rss-view {
   height: 100%;
-  --nas-rss-card-min-width: 280px;
+  --nas-rss-card-width: 280px;
 }
 
 .nas-rss-layout {
@@ -287,7 +287,8 @@
 
 .nas-rss-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--nas-rss-card-min-width), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--nas-rss-card-width)), var(--nas-rss-card-width)));
+  justify-content: start;
   gap: 18px;
 }
 

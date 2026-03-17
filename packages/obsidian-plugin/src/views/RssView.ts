@@ -285,7 +285,7 @@ export class NasRssView extends ItemView {
     contentEl.empty();
     contentEl.addClass("nas-rss-view");
     contentEl.style.setProperty(
-      "--nas-rss-card-min-width",
+      "--nas-rss-card-width",
       `${Math.max(220, this.plugin.settings.cardMinWidth)}px`
     );
 
@@ -561,7 +561,6 @@ export class NasRssView extends ItemView {
     }
 
     const gridEl = contentEl.createDiv({ cls: "nas-rss-card-grid" });
-    gridEl.style.gridTemplateColumns = `repeat(auto-fill, minmax(${Math.max(220, this.plugin.settings.cardMinWidth)}px, 1fr))`;
 
     for (const article of visibleArticles) {
       const feed = this.state.feeds.find((entry) => entry.id === article.feedId);
