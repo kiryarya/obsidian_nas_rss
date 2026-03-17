@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.turbo/
+packages/server/data/
+packages/server/.env
+*.log
+tmp-deploy-test/

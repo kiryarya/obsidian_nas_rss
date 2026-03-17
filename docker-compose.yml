@@ -1,0 +1,17 @@
+services:
+  rss-server:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    ports:
+      - "43112:43112"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 43112
+      RSS_SERVER_DATA_FILE: /data/rss-state.json
+    volumes:
+      - rss-server-data:/data
+    restart: unless-stopped
+
+volumes:
+  rss-server-data:

@@ -1,0 +1,481 @@
+.nas-rss-view {
+  height: 100%;
+}
+
+.nas-rss-layout {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  background: var(--background-primary);
+}
+
+.nas-rss-sidebar {
+  width: 280px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--background-modifier-border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--background-secondary) 92%, transparent), var(--background-primary-alt));
+}
+
+.nas-rss-sidebar-header {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.nas-rss-sidebar-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.nas-rss-sidebar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nas-rss-sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.nas-rss-sidebar-section,
+.nas-rss-group-section {
+  margin-bottom: 16px;
+}
+
+.nas-rss-sidebar-item,
+.nas-rss-group-label,
+.nas-rss-feed-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.nas-rss-sidebar-item,
+.nas-rss-feed-item,
+.nas-rss-group-header {
+  border-radius: 10px;
+}
+
+.nas-rss-sidebar-item {
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.nas-rss-sidebar-item:hover,
+.nas-rss-group-header:hover,
+.nas-rss-feed-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.nas-rss-sidebar-item.is-active,
+.nas-rss-group-header.is-active,
+.nas-rss-feed-item.is-active {
+  background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-secondary));
+  color: var(--text-normal);
+}
+
+.nas-rss-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+}
+
+.nas-rss-group-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nas-rss-group-label {
+  padding: 4px 0;
+  text-align: left;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.nas-rss-group-feeds {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding-left: 10px;
+}
+
+.nas-rss-ungrouped-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 0 10px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.nas-rss-feed-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.nas-rss-feed-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.nas-rss-feed-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nas-rss-feed-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
+
+.nas-rss-feed-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.nas-rss-feed-title.is-error,
+.nas-rss-feed-error {
+  color: var(--text-error);
+}
+
+.nas-rss-feed-url {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nas-rss-feed-actions {
+  opacity: 0.4;
+}
+
+.nas-rss-feed-item:hover .nas-rss-feed-actions,
+.nas-rss-group-header:hover .nas-rss-icon-button {
+  opacity: 1;
+}
+
+.nas-rss-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.nas-rss-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 10px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.nas-rss-toolbar-heading {
+  min-width: 0;
+}
+
+.nas-rss-toolbar-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.nas-rss-toolbar-subtitle {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.nas-rss-search-wrap {
+  width: min(320px, 100%);
+}
+
+.nas-rss-search-input {
+  width: 100%;
+}
+
+.nas-rss-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.nas-rss-status-banner {
+  margin: 12px 18px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-secondary));
+  color: var(--text-normal);
+}
+
+.nas-rss-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 18px;
+}
+
+.nas-rss-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 18px 18px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.nas-rss-pagination-label {
+  min-width: 110px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.nas-rss-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.nas-rss-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 350px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--background-primary) 90%, transparent), var(--background-secondary));
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    opacity 120ms ease;
+}
+
+.nas-rss-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--interactive-accent) 55%, var(--background-modifier-border));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.12);
+}
+
+.nas-rss-card.is-read {
+  opacity: 0.78;
+}
+
+.nas-rss-card-thumb-wrap {
+  height: 168px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--interactive-accent) 15%, var(--background-secondary)), var(--background-primary-alt));
+  overflow: hidden;
+}
+
+.nas-rss-card-thumb-wrap.is-empty::after {
+  content: "NO IMAGE";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.nas-rss-card-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.nas-rss-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+.nas-rss-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  flex-wrap: wrap;
+}
+
+.nas-rss-card-meta-favicon {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.nas-rss-card-meta-separator {
+  color: var(--text-faint);
+}
+
+.nas-rss-card-title {
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.nas-rss-card-title mark {
+  background: color-mix(in srgb, var(--interactive-accent) 22%, transparent);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 4px;
+}
+
+.nas-rss-card-snippet {
+  color: var(--text-normal);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.nas-rss-card-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nas-rss-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.nas-rss-read-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.nas-rss-read-badge.is-unread {
+  background: color-mix(in srgb, var(--color-green) 18%, transparent);
+  color: var(--text-normal);
+}
+
+.nas-rss-read-badge.is-read {
+  background: color-mix(in srgb, var(--background-modifier-border) 55%, transparent);
+  color: var(--text-muted);
+}
+
+.nas-rss-card-action,
+.nas-rss-primary-button,
+.nas-rss-secondary-button,
+.nas-rss-icon-button {
+  border-radius: 10px;
+}
+
+.nas-rss-card-action {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.nas-rss-card-action.is-active {
+  border-color: color-mix(in srgb, var(--interactive-accent) 60%, var(--background-modifier-border));
+  background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary));
+}
+
+.nas-rss-primary-button,
+.nas-rss-secondary-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+}
+
+.nas-rss-primary-button {
+  background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-secondary));
+}
+
+.nas-rss-icon-button {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.nas-rss-empty {
+  padding: 28px;
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: 16px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .nas-rss-layout {
+    flex-direction: column;
+  }
+
+  .nas-rss-sidebar {
+    width: 100%;
+    min-width: 0;
+    max-height: 42%;
+    border-right: 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+  }
+
+  .nas-rss-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .nas-rss-search-wrap {
+    width: 100%;
+  }
+}

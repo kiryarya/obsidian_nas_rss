@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+    <head>
+        <title>RSS Plugin Feed Export</title>
+    </head>
+    <body>
+        <outline text="ITmedia 総合記事一覧 " title="ITmedia 総合記事一覧 " type="rss" xmlUrl="https://rss.itmedia.co.jp/rss/2.0/itmedia_all.xml" htmlUrl="https://www.itmedia.co.jp/" />
+        <outline text="#Obsidianタグ" title="#Obsidianタグ" type="rss" xmlUrl="https://note.com/hashtag/Obsidian/rss" htmlUrl="https://note.com/hashtag/Obsidian" />
+        <outline text="#マスターデュエルタグ" title="#マスターデュエルタグ" type="rss" xmlUrl="https://note.com/hashtag/%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC%E3%83%87%E3%83%A5%E3%82%A8%E3%83%AB/rss" htmlUrl="https://note.com/hashtag/マスターデュエル" />
+        <outline text="Game*Spark" title="Game*Spark" type="rss" xmlUrl="https://www.gamespark.jp/rss20/index.rdf" htmlUrl="https://www.gamespark.jp/" />
+        <outline text="KAI-YOU" title="KAI-YOU" type="rss" xmlUrl="https://kai-you.net/contents/feed.rss" htmlUrl="https://kai-you.net" />
+        <outline text="電ファミニコゲーマー – ゲームの面白い記事読んでみない？" title="電ファミニコゲーマー – ゲームの面白い記事読んでみない？" type="rss" xmlUrl="https://news.denfaminicogamer.jp/feed" />
+        <outline text="GIGAZINE" title="GIGAZINE" type="rss" xmlUrl="https://gigazine.net/news/rss_2.0/" htmlUrl="https://gigazine.net/" />
+        <outline text="Obsidian" title="Obsidian" type="rss" xmlUrl="https://www.reddit.com/r/ObsidianMD/.rss" htmlUrl="https://www.reddit.com/r/ObsidianMD/" />
+        <outline text="アニメ！アニメ！" title="アニメ！アニメ！" type="rss" xmlUrl="https://animeanime.jp/rss20/index.rdf" htmlUrl="https://animeanime.jp/" />
+        <outline text="ASCII.jp － トップ" title="ASCII.jp － トップ" type="rss" xmlUrl="https://ascii.jp/rss.xml" htmlUrl="https://ascii.jp/1/" />
+        <outline text="Taste of Tech Topics" title="Taste of Tech Topics" type="rss" xmlUrl="https://acro-engineer.hatenablog.com/feed" htmlUrl="https://acro-engineer.hatenablog.com/" />
+        <outline text="Gamer - ゲームニュース" title="Gamer - ゲームニュース" type="rss" xmlUrl="https://www.gamer.ne.jp/feed/news.rdf" htmlUrl="https://www.gamer.ne.jp/feed/news.rdf" />
+        <outline text="AUTOMATON" title="AUTOMATON" type="rss" xmlUrl="https://automaton-media.com/feed/" htmlUrl="https://automaton-media.com/" />
+        <outline text="CG GEEKS" title="CG GEEKS" type="rss" xmlUrl="http://cg-geeks.com/feed" htmlUrl="http://cg-geeks.com" />
+        <outline text="CGinterest" title="CGinterest" type="rss" xmlUrl="https://cginterest.com/feed/" htmlUrl="https://cginterest.com" />
+        <outline text="Chillout with Beat" title="Chillout with Beat" type="rss" xmlUrl="https://chilloutwithbeats.com/feed/" htmlUrl="https://chilloutwithbeats.com" />
+        <outline text="Computer Music Japan" title="Computer Music Japan" type="rss" xmlUrl="https://computermusic.jp/feed/" htmlUrl="https://computermusic.jp" />
+        <outline text="doope!" title="doope!" type="rss" xmlUrl="https://doope.jp/feed/" htmlUrl="https://doope.jp" />
+        <outline text="DTM DRIVER!" title="DTM DRIVER!" type="rss" xmlUrl="https://dtmdriver.com/feed" htmlUrl="https://dtmdriver.com" />
+        <outline text="EAA FPS News（イーエーエー）" title="EAA FPS News（イーエーエー）" type="rss" xmlUrl="https://fpsjp.net/feed" htmlUrl="https://fpsjp.net" />
+        <outline text="fig-memo" title="fig-memo" type="rss" xmlUrl="https://fig-memo.com/feed/" htmlUrl="https://fig-memo.com" />
+        <outline text="Figgy - 最新・新作フィギュア情報" title="Figgy - 最新・新作フィギュア情報" type="rss" xmlUrl="https://www.figgy.jp/feed/figure.rdf" htmlUrl="https://www.figgy.jp/feed/figure.rdf" />
+        <outline text="G-gen Tech Blog" title="G-gen Tech Blog" type="rss" xmlUrl="https://blog.g-gen.co.jp/feed" htmlUrl="https://blog.g-gen.co.jp/" />
+        <outline text="GAME Watch" title="GAME Watch" type="rss" xmlUrl="https://game.watch.impress.co.jp/data/rss/1.0/gmw/feed.rdf" htmlUrl="https://game.watch.impress.co.jp" />
+        <outline text="ICON" title="ICON" type="rss" xmlUrl="https://icon.jp/feed" htmlUrl="https://icon.jp" />
+        <outline text="ICS MEDIA" title="ICS MEDIA" type="rss" xmlUrl="https://ics.media/feed/atom.xml" htmlUrl="https://ics.media/" />
+        <outline text="IGN Japan" title="IGN Japan" type="rss" xmlUrl="https://jp.ign.com/feed.xml" htmlUrl="https://jp.ign.com" />
+        <outline text="INSIDE" title="INSIDE" type="rss" xmlUrl="https://www.inside-games.jp/rss20/index.rdf" htmlUrl="https://www.inside-games.jp/" />
+        <outline text="Indie Games Plus" title="Indie Games Plus" type="rss" xmlUrl="https://indiegamesplus.com/feed/" htmlUrl="https://indiegamesplus.com/" />
+        <outline text="Indie Freaks｜インディーゲーム専門サイト" title="Indie Freaks｜インディーゲーム専門サイト" type="rss" xmlUrl="https://www.indie-freaks.com/rss.xml" htmlUrl="https://www.indie-freaks.com/blog" />
+        <outline text="JJ PCゲームラボ" title="JJ PCゲームラボ" type="rss" xmlUrl="https://jj-labo.seesaa.net/index20.rdf" htmlUrl="https://jj-labo.seesaa.net/" />
+        <outline text="ITライフハック" title="ITライフハック" type="rss" xmlUrl="https://itlifehack.jp/index.rdf" htmlUrl="https://itlifehack.jp/" />
+        <outline text="Kultur" title="Kultur" type="rss" xmlUrl="https://kultur.jp/feed/" htmlUrl="https://kultur.jp" />
+        <outline text="Kickstarter fan!" title="Kickstarter fan!" type="rss" xmlUrl="https://www.kickstarterfan.com/feed" htmlUrl="https://www.kickstarterfan.com" />
+        <outline text="Menthas #all" title="Menthas #all" type="rss" xmlUrl="https://menthas.com/all/rss" htmlUrl="https://menthas.com" />
+        <outline text="Lifehacking.jp" title="Lifehacking.jp" type="rss" xmlUrl="https://lifehacking.jp/index.xml" htmlUrl="https://lifehacking.jp/" />
+        <outline text="ｋ本的に無料ソフト・フリーソフト 更新情報" title="ｋ本的に無料ソフト・フリーソフト 更新情報" type="rss" xmlUrl="https://www.gigafree.net/index.xml" htmlUrl="http://www.gigafree.net/" />
+        <outline text="Negitaku.org esports" title="Negitaku.org esports" type="rss" xmlUrl="https://www.negitaku.org/feed" htmlUrl="https://www.negitaku.org" />
+        <outline text="NaGISA net" title="NaGISA net" type="rss" xmlUrl="http://nagisanet.blog.fc2.com/?xml" htmlUrl="http://nagisanet.blog.fc2.com/" />
+        <outline text="MOD狂いのゲーマーブログ" title="MOD狂いのゲーマーブログ" type="rss" xmlUrl="https://pcmodgamer.com/feed" htmlUrl="https://pcmodgamer.com" />
+        <outline text="PC Watch" title="PC Watch" type="rss" xmlUrl="https://pc.watch.impress.co.jp/data/rss/1.0/pcw/feed.rdf" htmlUrl="https://pc.watch.impress.co.jp" />
+        <outline text="Qiita - 人気の記事" title="Qiita - 人気の記事" type="rss" xmlUrl="https://qiita.com/popular-items/feed.atom" htmlUrl="https://qiita.com/popular-items" />
+        <outline text="POSTD | ニジボックスが運営するエンジニアに向けたキュレーションメディア" title="POSTD | ニジボックスが運営するエンジニアに向けたキュレーションメディア" type="rss" xmlUrl="https://postd.cc/feed/" htmlUrl="https://postd.cc" />
+        <outline text="Recon-ReviewDays" title="Recon-ReviewDays" type="rss" xmlUrl="https://reviewdays.com/feed" htmlUrl="https://reviewdays.com" />
+        <outline text="ROOMIE（ルーミー）" title="ROOMIE（ルーミー）" type="rss" xmlUrl="https://www.roomie.jp/feed/" htmlUrl="https://www.roomie.jp" />
+        <outline text="廃都ラーナの遺跡" title="廃都ラーナの遺跡" type="rss" xmlUrl="https://rynona.hiho.jp/games1985/feed/" htmlUrl="https://rynona.hiho.jp/games1985/" />
+        <outline text="gamebiz【ゲームビズ】" title="gamebiz【ゲームビズ】" type="rss" xmlUrl="https://gamebiz.jp/feed.rss" htmlUrl="https://gamebiz.jp/" />
+        <outline text="SynthSonic" title="SynthSonic" type="rss" xmlUrl="https://synthsonic.net/feed" htmlUrl="https://synthsonic.net" />
+        <outline text="t011.org" title="t011.org" type="rss" xmlUrl="https://t011.org/feed" htmlUrl="https://t011.org/" />
+        <outline text="Vtuberまとめるよ～ん" title="Vtuberまとめるよ～ん" type="rss" xmlUrl="https://vtuber-matomeruyon.blog.jp/index.rdf" htmlUrl="https://vtuber-matomeruyon.blog.jp/" />
+        <outline text="WIRED Japan" title="WIRED Japan" type="rss" xmlUrl="https://wired.jp/feed/rss" htmlUrl="https://wired.jp" />
+        <outline text="World News" title="World News" type="rss" xmlUrl="https://www.reddit.com/r/worldnews/.rss" htmlUrl="https://www.reddit.com/r/worldnews/" />
+        <outline text="Zennのトレンド" title="Zennのトレンド" type="rss" xmlUrl="https://zenn.dev/feed" htmlUrl="https://zenn.dev" />
+        <outline text="あにこ便｜アニメ感想サイト" title="あにこ便｜アニメ感想サイト" type="rss" xmlUrl="https://anicobin.ldblog.jp/index.rdf" htmlUrl="https://anicobin.ldblog.jp/" />
+        <outline text="ああ言えばForYou" title="ああ言えばForYou" type="rss" xmlUrl="https://aaieba.livedoor.biz/index.rdf" htmlUrl="https://aaieba.livedoor.biz/" />
+        <outline text="おふあぷっ！" title="おふあぷっ！" type="rss" xmlUrl="http://offline-application.sblo.jp/index.rdf" htmlUrl="http://offline-application.sblo.jp/" />
+        <outline text="オモコロ あたまゆるゆるインターネットオモコロ あたまゆるゆるインターネット" title="オモコロ あたまゆるゆるインターネットオモコロ あたまゆるゆるインターネット" type="rss" xmlUrl="https://omocoro.jp/feed" htmlUrl="https://omocoro.jp" />
+        <outline text="オレ的ゲーム速報＠刃" title="オレ的ゲーム速報＠刃" type="rss" xmlUrl="https://jin115.com/index.rdf" htmlUrl="https://jin115.com/" />
+        <outline text="ガジェット通信 GetNews" title="ガジェット通信 GetNews" type="rss" xmlUrl="https://getnews.jp/feed/ext/orig" htmlUrl="https://getnews.jp" />
+        <outline text="オンラインゲームニュース" title="オンラインゲームニュース" type="rss" xmlUrl="https://www.onlinegamer.jp/rss/news.xml" htmlUrl="https://www.onlinegamer.jp/news/" />
+        <outline text="カラパイア" title="カラパイア" type="rss" xmlUrl="https://karapaia.com/feed" htmlUrl="https://karapaia.com" />
+        <outline text="ギズモード・ジャパン" title="ギズモード・ジャパン" type="rss" xmlUrl="https://www.gizmodo.jp/index.xml" htmlUrl="https://www.gizmodo.jp" />
+        <outline text="ボクラの九龍城" title="ボクラの九龍城" type="rss" xmlUrl="https://bokuron.blog.fc2.com/?xml" htmlUrl="https://bokuron.blog.fc2.com/" />
+        <outline text="Publickey" title="Publickey" type="rss" xmlUrl="https://www.publickey1.jp/atom.xml" htmlUrl="https://www.publickey1.jp/" />
+        <outline text="blog.handlena.me" title="blog.handlena.me" type="rss" xmlUrl="https://blog.handlena.me/index.xml" htmlUrl="https://blog.handlena.me/" />
+        <outline text="はてなブックマーク - 人気エントリー - テクノロジー" title="はてなブックマーク - 人気エントリー - テクノロジー" type="rss" xmlUrl="https://b.hatena.ne.jp/hotentry/it.rss" htmlUrl="https://b.hatena.ne.jp/hotentry/it" />
+        <outline text="FNMNL (フェノメナル)" title="FNMNL (フェノメナル)" type="rss" xmlUrl="https://fnmnl.tv/feed" htmlUrl="https://fnmnl.tv" />
+        <outline text="もぐらゲームス" title="もぐらゲームス" type="rss" xmlUrl="https://www.moguragames.com/feed/" htmlUrl="https://www.moguragames.com" />
+        <outline text="IndieGamesJp.dev" title="IndieGamesJp.dev" type="rss" xmlUrl="https://indiegamesjp.dev/?feed=rss2" htmlUrl="https://indiegamesjp.dev" />
+        <outline text="エルミタージュ秋葉原エルミタージュ秋葉原" title="エルミタージュ秋葉原エルミタージュ秋葉原" type="rss" xmlUrl="https://www.gdm.or.jp/feed" htmlUrl="https://www.gdm.or.jp" />
+        <outline text="Qetic" title="Qetic" type="rss" xmlUrl="https://qetic.jp/feed/" />
+        <outline text="TOWER RECORDS ONLINE - 主要記事" title="TOWER RECORDS ONLINE - 主要記事" type="rss" xmlUrl="https://tower.jp/feeds/article/" htmlUrl="https://tower.jp/feeds/article" />
+        <outline text="MESCIUS.devlog" title="MESCIUS.devlog" type="rss" xmlUrl="https://devlog.mescius.jp/feed/" htmlUrl="https://devlog.mescius.jp/" />
+        <outline text="Jazzと読書の日々" title="Jazzと読書の日々" type="rss" xmlUrl="https://wineroses.hatenablog.com/feed" htmlUrl="https://wineroses.hatenablog.com/" />
+        <outline text="RimWorld reddit" title="RimWorld reddit" type="rss" xmlUrl="https://www.reddit.com/r/RimWorld/.rss" htmlUrl="https://www.reddit.com/r/RimWorld/" />
+        <outline text="Elin reddit" title="Elin reddit" type="rss" xmlUrl="https://www.reddit.com/r/ElinsInn/.rss" htmlUrl="https://www.reddit.com/r/ElinsInn/" />
+        <outline text="Obsidian Forum - Latest posts" title="Obsidian Forum - Latest posts" type="rss" xmlUrl="https://forum.obsidian.md/posts.rss" htmlUrl="https://forum.obsidian.md" />
+    </body>
+</opml>

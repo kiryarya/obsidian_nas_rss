@@ -1,0 +1,22 @@
+{
+  "name": "@obsidian-rss-nas/obsidian-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "obsidian": "latest",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@types/turndown": "^5.0.5",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.25.9",
+    "typescript": "^5.9.2"
+  }
+}

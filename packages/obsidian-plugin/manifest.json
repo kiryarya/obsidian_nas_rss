@@ -1,0 +1,9 @@
+{
+  "id": "nas-rss-viewer",
+  "name": "NAS RSS Viewer",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "View RSS articles from a NAS-hosted RSS server.",
+  "author": "tapih",
+  "isDesktopOnly": false
+}
