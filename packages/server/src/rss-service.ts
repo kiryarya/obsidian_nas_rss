@@ -299,8 +299,9 @@ async function fetchText(
 async function fetchWithSystemTool(url: string): Promise<string> {
   const acceptHeader = FEED_REQUEST_HEADERS.accept;
   const userAgent = FEED_REQUEST_HEADERS["user-agent"];
-  const commands: Array<{ command: string; args: string[] }> = [
+  const commands: Array<{ label: string; command: string; args: string[] }> = [
     {
+      label: "wget",
       command: "wget",
       args: [
         "-qO-",
@@ -312,6 +313,20 @@ async function fetchWithSystemTool(url: string): Promise<string> {
       ]
     },
     {
+      label: "wget-insecure",
+      command: "wget",
+      args: [
+        "-qO-",
+        "--timeout=10",
+        "--tries=1",
+        "--no-check-certificate",
+        `--user-agent=${userAgent}`,
+        `--header=Accept: ${acceptHeader}`,
+        url
+      ]
+    },
+    {
+      label: "curl",
       command: "curl",
       args: [
         "-fsSL",
@@ -326,7 +341,7 @@ async function fetchWithSystemTool(url: string): Promise<string> {
     }
   ];
 
-  let lastError: unknown;
+  const errors: string[] = [];
   for (const entry of commands) {
     try {
       const { stdout } = await execFileAsync(entry.command, entry.args, {
@@ -337,11 +352,25 @@ async function fetchWithSystemTool(url: string): Promise<string> {
         return stdout;
       }
     } catch (error) {
-      lastError = error;
+      const execError = error as NodeJS.ErrnoException & { stderr?: string };
+      if (execError.code === "ENOENT") {
+        continue;
+      }
+
+      const stderr = execError.stderr?.trim();
+      errors.push(
+        stderr
+          ? `${entry.label}: ${stderr}`
+          : `${entry.label}: ${execError.message}`
+      );
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error("feed fetch fallback failed");
+  if (errors.length > 0) {
+    throw new Error(errors.join(" | "));
+  }
+
+  throw new Error("feed fetch fallback failed");
 }
 
 async function fetchFeedXml(url: string): Promise<string> {
@@ -390,9 +419,14 @@ async function fetchFeedXmlPreferSystemTool(url: string): Promise<string> {
   }
 
   try {
-    return await fetchFeedXmlWithFallback(url);
-  } catch (primaryError) {
-    throw systemError instanceof Error ? systemError : primaryError;
+    return await fetchFeedXml(url);
+  } catch (fetchError) {
+    const messages = [
+      systemError instanceof Error ? `system: ${systemError.message}` : undefined,
+      fetchError instanceof Error ? `fetch: ${fetchError.message}` : undefined
+    ].filter((value): value is string => Boolean(value));
+
+    throw new Error(messages.join(" | ") || "feed fetch failed");
   }
 }
 
