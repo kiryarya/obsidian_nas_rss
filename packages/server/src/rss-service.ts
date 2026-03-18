@@ -301,6 +301,17 @@ async function fetchWithSystemTool(url: string): Promise<string> {
   const userAgent = FEED_REQUEST_HEADERS["user-agent"];
   const commands: Array<{ command: string; args: string[] }> = [
     {
+      command: "wget",
+      args: [
+        "-qO-",
+        "--timeout=10",
+        "--tries=1",
+        `--user-agent=${userAgent}`,
+        `--header=Accept: ${acceptHeader}`,
+        url
+      ]
+    },
+    {
       command: "curl",
       args: [
         "-fsSL",
@@ -310,17 +321,6 @@ async function fetchWithSystemTool(url: string): Promise<string> {
         userAgent,
         "-H",
         `Accept: ${acceptHeader}`,
-        url
-      ]
-    },
-    {
-      command: "wget",
-      args: [
-        "-qO-",
-        "--timeout=10",
-        "--tries=1",
-        `--user-agent=${userAgent}`,
-        `--header=Accept: ${acceptHeader}`,
         url
       ]
     }
