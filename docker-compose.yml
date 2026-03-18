@@ -9,6 +9,9 @@ services:
       HOST: 0.0.0.0
       PORT: 43112
       RSS_SERVER_DATA_FILE: /data/rss-state.json
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     volumes:
       - rss-server-data:/data
     restart: unless-stopped
