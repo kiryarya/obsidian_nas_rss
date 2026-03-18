@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import Parser from "rss-parser";
 import type { StateStore } from "./store.js";
 import type {
@@ -36,6 +38,8 @@ type ParsedItem = {
   "media:content"?: MediaValue;
   "media:thumbnail"?: MediaValue;
 };
+
+const execFileAsync = promisify(execFile);
 
 const FEED_REQUEST_HEADERS = {
   "user-agent": "Mozilla/5.0 (compatible; ObsidianNasRss/1.0; +https://github.com/kiryarya/obsidian_nas_rss)",
@@ -292,6 +296,54 @@ async function fetchText(
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
+async function fetchWithSystemTool(url: string): Promise<string> {
+  const acceptHeader = FEED_REQUEST_HEADERS.accept;
+  const userAgent = FEED_REQUEST_HEADERS["user-agent"];
+  const commands: Array<{ command: string; args: string[] }> = [
+    {
+      command: "curl",
+      args: [
+        "-fsSL",
+        "--max-time",
+        "10",
+        "-A",
+        userAgent,
+        "-H",
+        `Accept: ${acceptHeader}`,
+        url
+      ]
+    },
+    {
+      command: "wget",
+      args: [
+        "-qO-",
+        "--timeout=10",
+        "--tries=1",
+        `--user-agent=${userAgent}`,
+        `--header=Accept: ${acceptHeader}`,
+        url
+      ]
+    }
+  ];
+
+  let lastError: unknown;
+  for (const entry of commands) {
+    try {
+      const { stdout } = await execFileAsync(entry.command, entry.args, {
+        windowsHide: true,
+        maxBuffer: 1024 * 1024 * 8
+      });
+      if (stdout.trim()) {
+        return stdout;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("feed fetch fallback failed");
+}
+
 async function fetchFeedXml(url: string): Promise<string> {
   const { body, contentType } = await fetchText(url, FEED_REQUEST_HEADERS, 7000, 1);
   if (looksLikeHtml(body, contentType)) {
@@ -299,6 +351,23 @@ async function fetchFeedXml(url: string): Promise<string> {
   }
 
   return body;
+}
+
+async function fetchFeedXmlWithFallback(url: string): Promise<string> {
+  try {
+    return await fetchFeedXml(url);
+  } catch (error) {
+    const fallbackBody = await fetchWithSystemTool(url).catch(() => undefined);
+    if (!fallbackBody) {
+      throw error;
+    }
+
+    if (looksLikeHtml(fallbackBody, "application/xml")) {
+      throw new Error("RSS/XML ではなく HTML が返されました");
+    }
+
+    return fallbackBody;
+  }
 }
 
 async function fetchOpenGraphImage(url: string): Promise<string | undefined> {
@@ -388,7 +457,7 @@ async function resolveFeedUrl(inputUrl: unknown): Promise<string> {
 
   let initialFetchError: unknown;
   try {
-    await fetchFeedXml(normalizedInputUrl);
+    await fetchFeedXmlWithFallback(normalizedInputUrl);
     return normalizedInputUrl;
   } catch (error) {
     initialFetchError = error;
@@ -412,7 +481,7 @@ async function resolveFeedUrl(inputUrl: unknown): Promise<string> {
 
   for (const candidateUrl of Array.from(candidateUrls).slice(0, 6)) {
     try {
-      await fetchFeedXml(candidateUrl);
+      await fetchFeedXmlWithFallback(candidateUrl);
       return candidateUrl;
     } catch {
       // Keep trying.
@@ -856,7 +925,7 @@ export class RssService {
       let workingUrl = feed.url;
       let parsed: Awaited<ReturnType<Parser["parseString"]>>;
       try {
-        const xml = await fetchFeedXml(workingUrl);
+        const xml = await fetchFeedXmlWithFallback(workingUrl);
         parsed = await this.parser.parseString(xml);
       } catch {
         try {
@@ -866,7 +935,7 @@ export class RssService {
           workingUrl = resolvedUrl;
 
           try {
-            const xml = await fetchFeedXml(workingUrl);
+            const xml = await fetchFeedXmlWithFallback(workingUrl);
             parsed = await this.parser.parseString(xml);
           } catch {
             parsed = await this.parser.parseURL(workingUrl);

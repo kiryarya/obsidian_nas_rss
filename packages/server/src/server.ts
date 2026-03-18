@@ -151,9 +151,15 @@ app.post("/api/feeds/import-opml", async (request, reply) => {
 
 app.delete("/api/feeds/:feedId", async (request, reply) => {
   const params = request.params as { feedId: string };
-  await rssService.removeFeed(params.feedId);
-  reply.status(204);
-  return null;
+  try {
+    await rssService.removeFeed(params.feedId);
+    reply.status(204);
+    return null;
+  } catch (error) {
+    request.log.error({ err: error, params }, "delete feed failed");
+    reply.status(400);
+    return { message: error instanceof Error ? error.message : String(error) };
+  }
 });
 
 app.post("/api/feeds/:feedId/group", async (request, reply) => {
