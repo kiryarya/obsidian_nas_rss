@@ -1421,8 +1421,10 @@ export class NasRssView extends ItemView {
       return;
     }
 
+    this.plugin.setLastArticleScrollTop(this.articleScrollTop);
+
     if (!article.isRead) {
-      await this.markArticleRead(articleId);
+      await this.markArticleRead(articleId, false);
     }
 
     if (target === "external") {
@@ -1515,7 +1517,7 @@ export class NasRssView extends ItemView {
     }
   }
 
-  private async markArticleRead(articleId: string): Promise<void> {
+  private async markArticleRead(articleId: string, shouldRender = true): Promise<void> {
     const article = this.state.articles.find((entry) => entry.id === articleId);
     if (!article || article.isRead || this.readInFlightIds.has(articleId)) {
       return;
@@ -1524,7 +1526,9 @@ export class NasRssView extends ItemView {
     this.readInFlightIds.add(articleId);
     try {
       await this.applyReadState([articleId], true);
-      this.render();
+      if (shouldRender) {
+        this.render();
+      }
     } catch (error) {
       new Notice(`既読更新に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
