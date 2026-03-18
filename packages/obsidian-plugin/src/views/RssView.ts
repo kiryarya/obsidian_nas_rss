@@ -155,6 +155,7 @@ export class NasRssView extends ItemView {
   private articleScrollTop = 0;
   private unreadSessionKey = "";
   private unreadSessionTotal = 0;
+  private unreadSessionArticles: ArticleDto[] = [];
   private readonly unreadSessionPages = new Map<number, ArticleDto[]>();
   private draggedFeedId: string | null = null;
 
@@ -328,35 +329,72 @@ export class NasRssView extends ItemView {
   private resetUnreadSession(): void {
     this.unreadSessionKey = "";
     this.unreadSessionTotal = 0;
+    this.unreadSessionArticles = [];
     this.unreadSessionPages.clear();
   }
 
-  private async loadUnreadSessionPage(query: string | undefined, limit: number): Promise<ArticlePageDto> {
+  private rebuildUnreadSessionPages(limit: number): void {
+    this.unreadSessionPages.clear();
+    for (let index = 0; index < this.unreadSessionArticles.length; index += limit) {
+      const page = Math.floor(index / limit) + 1;
+      this.unreadSessionPages.set(page, this.unreadSessionArticles.slice(index, index + limit));
+    }
+    this.unreadSessionTotal = this.unreadSessionArticles.length;
+  }
+
+  private async ensureUnreadSessionSnapshot(query: string | undefined, limit: number): Promise<void> {
     const sessionKey = this.getUnreadSessionKey(query);
     if (this.unreadSessionKey !== sessionKey) {
       this.resetUnreadSession();
       this.unreadSessionKey = sessionKey;
     }
 
-    const page = Math.max(1, this.state.currentPage);
-    const cached = this.unreadSessionPages.get(page);
-    if (cached) {
-      return {
-        articles: cached,
-        total: this.unreadSessionTotal
-      };
+    if (this.unreadSessionArticles.length > 0) {
+      return;
     }
 
-    const result = await this.plugin.apiClient.getArticles({
-      unreadOnly: true,
-      query,
-      offset: (page - 1) * limit,
-      limit
-    });
+    const fetchLimit = 200;
+    const collected: ArticleDto[] = [];
+    let total = 0;
+    let offset = 0;
 
-    this.unreadSessionPages.set(page, result.articles);
-    this.unreadSessionTotal = result.total;
-    return result;
+    while (true) {
+      const result = await this.plugin.apiClient.getArticles({
+        unreadOnly: true,
+        query,
+        offset,
+        limit: fetchLimit
+      });
+
+      if (offset === 0) {
+        total = result.total;
+      }
+
+      if (result.articles.length === 0) {
+        break;
+      }
+
+      collected.push(...result.articles);
+      offset += result.articles.length;
+
+      if (collected.length >= total) {
+        break;
+      }
+    }
+
+    this.unreadSessionArticles = collected
+      .slice()
+      .sort((left, right) => new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime());
+    this.rebuildUnreadSessionPages(limit);
+  }
+
+  private async loadUnreadSessionPage(query: string | undefined, limit: number): Promise<ArticlePageDto> {
+    await this.ensureUnreadSessionSnapshot(query, limit);
+    const page = Math.max(1, this.state.currentPage);
+    return {
+      articles: this.unreadSessionPages.get(page) ?? [],
+      total: this.unreadSessionTotal
+    };
   }
 
   private ensureSelectedSourceStillExists(): void {
@@ -1368,23 +1406,10 @@ export class NasRssView extends ItemView {
       const nextPage = this.state.currentPage + 1;
       const limit = this.getItemsPerPage();
       const query = this.state.searchQuery.trim() || undefined;
-      const sessionKey = this.getUnreadSessionKey(query);
-      if (this.unreadSessionKey !== sessionKey) {
-        this.unreadSessionKey = sessionKey;
-      }
+      await this.ensureUnreadSessionSnapshot(query, limit);
 
       if (!this.unreadSessionPages.has(nextPage)) {
-        const nextPageResult = await this.plugin.apiClient.getArticles({
-          unreadOnly: true,
-          query,
-          offset: (nextPage - 1) * limit,
-          limit
-        });
-        if (nextPageResult.articles.length === 0) {
-          return;
-        }
-        this.unreadSessionPages.set(nextPage, nextPageResult.articles);
-        this.unreadSessionTotal = Math.max(this.unreadSessionTotal, nextPageResult.total);
+        return;
       }
 
       const unreadIds = currentPageArticles
@@ -1547,13 +1572,9 @@ export class NasRssView extends ItemView {
       .map((article) => (idSet.has(article.id) ? { ...article, isRead } : article));
 
     if (this.state.selectedSource === "unread") {
-      const currentPageArticles = this.unreadSessionPages.get(this.state.currentPage);
-      if (currentPageArticles) {
-        this.unreadSessionPages.set(
-          this.state.currentPage,
-          currentPageArticles.map((article) => (idSet.has(article.id) ? { ...article, isRead } : article))
-        );
-      }
+      this.unreadSessionArticles = this.unreadSessionArticles
+        .map((article) => (idSet.has(article.id) ? { ...article, isRead } : article));
+      this.rebuildUnreadSessionPages(this.getItemsPerPage());
       return;
     }
   }
