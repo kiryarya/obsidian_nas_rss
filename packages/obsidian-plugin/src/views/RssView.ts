@@ -423,6 +423,13 @@ export class NasRssView extends ItemView {
       const headerRowEl = sectionEl.createDiv({
         cls: `nas-rss-group-header ${this.isGroupSelected(group.id) ? "is-active" : ""}`
       });
+      headerRowEl.onclick = () => {
+        this.articleScrollTop = 0;
+        this.state.currentPage = 1;
+        this.state.selectedSource = `group:${group.id}`;
+        this.resetUnreadSession();
+        void this.refresh();
+      };
 
       const leftEl = headerRowEl.createDiv({ cls: "nas-rss-group-header-left" });
       const toggleButton = leftEl.createEl("button", {
@@ -434,17 +441,10 @@ export class NasRssView extends ItemView {
         this.toggleGroupCollapse(group.id);
       };
 
-      const labelButton = leftEl.createEl("button", {
+      leftEl.createSpan({
         cls: "nas-rss-group-label",
         text: `${group.name} (${groupFeeds.length})`
       });
-      labelButton.onclick = () => {
-        this.articleScrollTop = 0;
-        this.state.currentPage = 1;
-        this.state.selectedSource = `group:${group.id}`;
-        this.resetUnreadSession();
-        void this.refresh();
-      };
 
       const actionsButton = headerRowEl.createEl("button", {
         cls: "nas-rss-icon-button",

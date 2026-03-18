@@ -429,6 +429,9 @@ async function resolveFeedUrl(inputUrl: unknown): Promise<string> {
 export class RssService {
   private lastCleanupAt = 0;
   private readonly parser = new Parser({
+    headers: FEED_REQUEST_HEADERS,
+    timeout: 10000,
+    maxRedirects: 5,
     customFields: {
       item: [
         ["media:content", "media:content"],
@@ -851,16 +854,25 @@ export class RssService {
 
     try {
       let workingUrl = feed.url;
-      let xml: string;
+      let parsed: Awaited<ReturnType<Parser["parseString"]>>;
       try {
-        xml = await fetchFeedXml(workingUrl);
+        const xml = await fetchFeedXml(workingUrl);
+        parsed = await this.parser.parseString(xml);
       } catch {
-        const resolvedUrl = await resolveFeedUrl(feed.url);
-        workingUrl = resolvedUrl;
-        xml = await fetchFeedXml(workingUrl);
-      }
+        try {
+          parsed = await this.parser.parseURL(workingUrl);
+        } catch {
+          const resolvedUrl = await resolveFeedUrl(feed.url);
+          workingUrl = resolvedUrl;
 
-      const parsed = await this.parser.parseString(xml);
+          try {
+            const xml = await fetchFeedXml(workingUrl);
+            parsed = await this.parser.parseString(xml);
+          } catch {
+            parsed = await this.parser.parseURL(workingUrl);
+          }
+        }
+      }
       const fetchedAt = nowIso();
       const ogImageCandidates: OgImageCandidate[] = [];
 

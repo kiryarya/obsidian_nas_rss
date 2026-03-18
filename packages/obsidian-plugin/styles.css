@@ -60,7 +60,6 @@
 }
 
 .nas-rss-sidebar-item,
-.nas-rss-group-label,
 .nas-rss-feed-item {
   width: 100%;
   border: 0;
@@ -114,6 +113,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 6px 8px;
+  cursor: pointer;
 }
 
 .nas-rss-group-header-left {
@@ -121,13 +121,18 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  flex: 1;
 }
 
 .nas-rss-group-label {
+  display: block;
+  min-width: 0;
+  flex: 1;
   padding: 4px 0;
-  text-align: left;
-  cursor: pointer;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nas-rss-group-feeds {
