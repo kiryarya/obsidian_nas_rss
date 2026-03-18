@@ -55,8 +55,17 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function normalizeUrl(url: string): string {
-  return url.trim();
+function toTrimmedString(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}
+
+function normalizeUrl(url: unknown): string {
+  return toTrimmedString(url) ?? "";
 }
 
 function ensureHttpProtocol(url: string): string {
@@ -97,12 +106,13 @@ function readAttribute(outlineTag: string, attributeName: string): string | unde
   return match?.[1] ? decodeXmlEntities(match[1].trim()) : undefined;
 }
 
-function normalizeImageUrl(url: string | undefined, baseUrl?: string): string | undefined {
-  if (!url?.trim()) {
+function normalizeImageUrl(url: unknown, baseUrl?: string): string | undefined {
+  const trimmedUrl = toTrimmedString(url);
+  if (!trimmedUrl) {
     return undefined;
   }
 
-  let normalized = url.trim();
+  let normalized = trimmedUrl;
   if (normalized.startsWith("//")) {
     normalized = `https:${normalized}`;
   }
@@ -343,7 +353,7 @@ function buildCommonFeedUrls(pageUrl: string): string[] {
     }
 
     for (const base of bases) {
-      for (const suffix of ["/feed", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml"]) {
+      for (const suffix of ["/rss.xml", "/feed", "/feed.xml", "/atom.xml", "/index.xml"]) {
         const pathname = base === "/" ? suffix : `${base}${suffix}`;
         candidates.add(new URL(pathname, url.origin).toString());
       }
@@ -355,21 +365,36 @@ function buildCommonFeedUrls(pageUrl: string): string[] {
   return Array.from(candidates);
 }
 
-async function resolveFeedUrl(inputUrl: string): Promise<string> {
+function isLikelyFeedUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const pathname = parsed.pathname.toLowerCase().replace(/\/+$/, "");
+    return (
+      /\.(xml|rss|atom|json)$/i.test(pathname) ||
+      pathname.endsWith("/feed") ||
+      pathname.endsWith("/rss") ||
+      pathname.endsWith("/atom")
+    );
+  } catch {
+    return /\.(xml|rss|atom|json)(\?.*)?$/i.test(url) || /\/(feed|rss|atom)(\?.*)?$/i.test(url);
+  }
+}
+
+async function resolveFeedUrl(inputUrl: unknown): Promise<string> {
   const normalizedInputUrl = ensureHttpProtocol(normalizeUrl(inputUrl));
   if (!normalizedInputUrl) {
     throw new Error("FEED URL を入力してください");
   }
 
-  if (normalizedInputUrl.match(/\.(xml|rss|atom|json)(\?.*)?$/i)) {
-    return normalizedInputUrl;
-  }
-
+  let initialFetchError: unknown;
   try {
     await fetchFeedXml(normalizedInputUrl);
     return normalizedInputUrl;
-  } catch {
-    // Try auto discovery below.
+  } catch (error) {
+    initialFetchError = error;
+    if (isLikelyFeedUrl(normalizedInputUrl)) {
+      throw error instanceof Error ? error : new Error(String(error));
+    }
   }
 
   const candidateUrls = new Set(buildCommonFeedUrls(normalizedInputUrl));
@@ -385,13 +410,17 @@ async function resolveFeedUrl(inputUrl: string): Promise<string> {
     // HTML discovery is best-effort only.
   }
 
-  for (const candidateUrl of candidateUrls) {
+  for (const candidateUrl of Array.from(candidateUrls).slice(0, 6)) {
     try {
       await fetchFeedXml(candidateUrl);
       return candidateUrl;
     } catch {
       // Keep trying.
     }
+  }
+
+  if (initialFetchError instanceof Error && initialFetchError.message) {
+    throw initialFetchError;
   }
 
   throw new Error("指定した URL から有効な FEED を見つけられませんでした");
@@ -575,7 +604,7 @@ export class RssService {
   }
 
   async addFeed(url: string, title?: string): Promise<FeedRecord> {
-    const normalizedUrl = await resolveFeedUrl(url);
+    const normalizedUrl = ensureHttpProtocol(normalizeUrl(url));
     if (!normalizedUrl) {
       throw new Error("フィード URL が空です。");
     }
@@ -598,7 +627,7 @@ export class RssService {
       state.feeds.push(newFeed);
     });
 
-    await this.refreshFeeds(newFeed.id);
+    void this.refreshSingleFeed(newFeed.id);
 
     return (await this.listFeeds()).find((feed) => feed.id === newFeed.id)!;
   }
@@ -939,6 +968,12 @@ export class RssService {
         }
       }
     } catch (error) {
+      console.error("[rss-server] feed refresh failed", {
+        feedId,
+        feedUrl: feed.url,
+        message: error instanceof Error ? error.message : String(error)
+      });
+
       await this.store.mutate((mutableState) => {
         const mutableFeed = mutableState.feeds.find((entry) => entry.id === feedId);
         if (!mutableFeed) {

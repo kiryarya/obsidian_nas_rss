@@ -20,6 +20,15 @@ function parseBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
+function readStringField(body: unknown, fieldName: string): string | undefined {
+  if (!body || typeof body !== "object") {
+    return undefined;
+  }
+
+  const value = (body as Record<string, unknown>)[fieldName];
+  return typeof value === "string" ? value : undefined;
+}
+
 const store = new StateStore(serverConfig.dataFilePath);
 const rssService = new RssService(
   store,
@@ -47,17 +56,18 @@ app.get("/api/groups", async () => ({
 }));
 
 app.post("/api/groups", async (request, reply) => {
-  const body = (request.body ?? {}) as { name?: string };
-  if (!body.name) {
+  const name = readStringField(request.body, "name");
+  if (!name) {
     reply.status(400);
-    return { message: "name は必須です。" };
+    return { message: "name を入力してください" };
   }
 
   try {
-    const group = await rssService.createGroup(body.name);
+    const group = await rssService.createGroup(name);
     reply.status(201);
     return { group };
   } catch (error) {
+    request.log.error({ err: error, body: request.body }, "create group failed");
     reply.status(400);
     return { message: error instanceof Error ? error.message : String(error) };
   }
@@ -65,17 +75,18 @@ app.post("/api/groups", async (request, reply) => {
 
 app.patch("/api/groups/:groupId", async (request, reply) => {
   const params = request.params as { groupId: string };
-  const body = (request.body ?? {}) as { name?: string };
-  if (!body.name) {
+  const name = readStringField(request.body, "name");
+  if (!name) {
     reply.status(400);
-    return { message: "name は必須です。" };
+    return { message: "name を入力してください" };
   }
 
   try {
     return {
-      group: await rssService.renameGroup(params.groupId, body.name)
+      group: await rssService.renameGroup(params.groupId, name)
     };
   } catch (error) {
+    request.log.error({ err: error, body: request.body, params }, "rename group failed");
     reply.status(400);
     return { message: error instanceof Error ? error.message : String(error) };
   }
@@ -89,6 +100,7 @@ app.delete("/api/groups/:groupId", async (request, reply) => {
     reply.status(204);
     return null;
   } catch (error) {
+    request.log.error({ err: error, params }, "delete group failed");
     reply.status(404);
     return { message: error instanceof Error ? error.message : String(error) };
   }
@@ -101,34 +113,37 @@ app.get("/api/feeds/export-opml", async (_request, reply) => {
 });
 
 app.post("/api/feeds", async (request, reply) => {
-  const body = (request.body ?? {}) as { url?: string; title?: string };
-  if (!body.url) {
+  const url = readStringField(request.body, "url");
+  const title = readStringField(request.body, "title");
+  if (!url) {
     reply.status(400);
-    return { message: "url は必須です。" };
+    return { message: "url を入力してください" };
   }
 
   try {
-    const feed = await rssService.addFeed(body.url, body.title);
+    const feed = await rssService.addFeed(url, title);
     reply.status(201);
     return { feed };
   } catch (error) {
+    request.log.error({ err: error, body: request.body }, "add feed failed");
     reply.status(400);
     return { message: error instanceof Error ? error.message : String(error) };
   }
 });
 
 app.post("/api/feeds/import-opml", async (request, reply) => {
-  const body = (request.body ?? {}) as { content?: string };
-  if (!body.content || typeof body.content !== "string") {
+  const content = readStringField(request.body, "content");
+  if (!content) {
     reply.status(400);
-    return { message: "content に OPML 文字列を指定してください。" };
+    return { message: "content に OPML 文字列を指定してください" };
   }
 
   try {
     return {
-      result: await rssService.importOpml(body.content)
+      result: await rssService.importOpml(content)
     };
   } catch (error) {
+    request.log.error({ err: error }, "import opml failed");
     reply.status(400);
     return { message: error instanceof Error ? error.message : String(error) };
   }
@@ -143,13 +158,14 @@ app.delete("/api/feeds/:feedId", async (request, reply) => {
 
 app.post("/api/feeds/:feedId/group", async (request, reply) => {
   const params = request.params as { feedId: string };
-  const body = (request.body ?? {}) as { groupId?: string };
+  const groupId = readStringField(request.body, "groupId");
 
   try {
     return {
-      feed: await rssService.assignFeedToGroup(params.feedId, body.groupId)
+      feed: await rssService.assignFeedToGroup(params.feedId, groupId)
     };
   } catch (error) {
+    request.log.error({ err: error, body: request.body, params }, "assign feed group failed");
     reply.status(400);
     return { message: error instanceof Error ? error.message : String(error) };
   }
@@ -160,10 +176,10 @@ app.get("/api/feeds/refresh-status", async () => ({
 }));
 
 app.post("/api/feeds/refresh", async (request) => {
-  const body = (request.body ?? {}) as { feedId?: string };
-  const job = refreshJobManager.startJob(body.feedId);
+  const feedId = readStringField(request.body, "feedId");
+  const job = refreshJobManager.startJob(feedId);
 
-  void rssService.refreshFeeds(body.feedId)
+  void rssService.refreshFeeds(feedId)
     .then(() => {
       refreshJobManager.completeJob();
     })
@@ -181,12 +197,12 @@ app.get("/api/articles", async (request, reply) => {
 
   if (query.limit && !Number.isFinite(limit)) {
     reply.status(400);
-    return { message: "limit は数値で指定してください。" };
+    return { message: "limit は数値で指定してください" };
   }
 
   if (query.offset && !Number.isFinite(offset)) {
     reply.status(400);
-    return { message: "offset は数値で指定してください。" };
+    return { message: "offset は数値で指定してください" };
   }
 
   const result = await rssService.listArticles({
@@ -212,7 +228,7 @@ app.get("/api/articles/:articleId", async (request, reply) => {
 
   if (!article) {
     reply.status(404);
-    return { message: "記事が見つかりません。" };
+    return { message: "記事が見つかりません" };
   }
 
   return { article };
@@ -220,11 +236,11 @@ app.get("/api/articles/:articleId", async (request, reply) => {
 
 app.post("/api/articles/:articleId/read", async (request, reply) => {
   const params = request.params as { articleId: string };
-  const body = (request.body ?? {}) as { isRead?: boolean };
+  const body = request.body as { isRead?: boolean } | undefined;
 
-  if (typeof body.isRead !== "boolean") {
+  if (typeof body?.isRead !== "boolean") {
     reply.status(400);
-    return { message: "isRead は boolean で指定してください。" };
+    return { message: "isRead は boolean で指定してください" };
   }
 
   try {
@@ -232,6 +248,7 @@ app.post("/api/articles/:articleId/read", async (request, reply) => {
       article: await rssService.markArticleRead(params.articleId, body.isRead)
     };
   } catch (error) {
+    request.log.error({ err: error, body, params }, "mark article read failed");
     reply.status(404);
     return { message: error instanceof Error ? error.message : String(error) };
   }
@@ -239,11 +256,11 @@ app.post("/api/articles/:articleId/read", async (request, reply) => {
 
 app.post("/api/articles/:articleId/read-later", async (request, reply) => {
   const params = request.params as { articleId: string };
-  const body = (request.body ?? {}) as { isReadLater?: boolean };
+  const body = request.body as { isReadLater?: boolean } | undefined;
 
-  if (typeof body.isReadLater !== "boolean") {
+  if (typeof body?.isReadLater !== "boolean") {
     reply.status(400);
-    return { message: "isReadLater は boolean で指定してください。" };
+    return { message: "isReadLater は boolean で指定してください" };
   }
 
   try {
@@ -251,17 +268,18 @@ app.post("/api/articles/:articleId/read-later", async (request, reply) => {
       article: await rssService.markArticleReadLater(params.articleId, body.isReadLater)
     };
   } catch (error) {
+    request.log.error({ err: error, body, params }, "mark article read later failed");
     reply.status(404);
     return { message: error instanceof Error ? error.message : String(error) };
   }
 });
 
 app.post("/api/articles/read-bulk", async (request, reply) => {
-  const body = (request.body ?? {}) as { articleIds?: string[]; isRead?: boolean };
+  const body = request.body as { articleIds?: string[]; isRead?: boolean } | undefined;
 
-  if (!Array.isArray(body.articleIds) || typeof body.isRead !== "boolean") {
+  if (!Array.isArray(body?.articleIds) || typeof body.isRead !== "boolean") {
     reply.status(400);
-    return { message: "articleIds と isRead を正しく指定してください。" };
+    return { message: "articleIds と isRead を正しく指定してください" };
   }
 
   return {
@@ -282,7 +300,7 @@ app.post("/api/articles/read-filtered", async (request, reply) => {
 
   if (typeof body.isRead !== "boolean") {
     reply.status(400);
-    return { message: "isRead を指定してください。" };
+    return { message: "isRead を指定してください" };
   }
 
   return {
