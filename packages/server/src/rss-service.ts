@@ -30,6 +30,9 @@ type ParsedItem = {
   content?: string;
   contentSnippet?: string;
   pubDate?: string;
+  isoDate?: string;
+  published?: string;
+  updated?: string;
   enclosure?: { url?: string; type?: string };
   image?: string;
   mediaContent?: MediaValue;
@@ -569,7 +572,10 @@ export class RssService {
         ["media:thumbnail", "mediaThumbnail"],
         ["enclosure", "enclosure"],
         ["content:encoded", "content:encoded"],
-        ["image", "image"]
+        ["image", "image"],
+        ["published", "published"],
+        ["updated", "updated"],
+        ["dc:date", "isoDate"]
       ]
     }
   });
@@ -1085,7 +1091,10 @@ export class RssService {
           const articleId = createId(`article:${feedId}:${link}`);
           const existing = mutableState.articles.find((article) => article.id === articleId);
           const imageUrl = extractImageUrl(item, link);
-          const publishedAt = toIsoDate(item.pubDate, fetchedAt);
+          const publishedAt = toIsoDate(
+            item.isoDate ?? item.pubDate ?? item.published ?? item.updated,
+            fetchedAt
+          );
 
           if (existing) {
             existing.title = title;
