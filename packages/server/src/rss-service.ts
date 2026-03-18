@@ -376,6 +376,26 @@ async function fetchFeedXmlWithFallback(url: string): Promise<string> {
   }
 }
 
+async function fetchFeedXmlPreferSystemTool(url: string): Promise<string> {
+  let systemError: unknown;
+
+  try {
+    const systemBody = await fetchWithSystemTool(url);
+    if (looksLikeHtml(systemBody, "application/xml")) {
+      throw new Error("RSS/XML ではなく HTML が返されました");
+    }
+    return systemBody;
+  } catch (error) {
+    systemError = error;
+  }
+
+  try {
+    return await fetchFeedXmlWithFallback(url);
+  } catch (primaryError) {
+    throw systemError instanceof Error ? systemError : primaryError;
+  }
+}
+
 async function fetchOpenGraphImage(url: string): Promise<string | undefined> {
   try {
     const { body } = await fetchText(url, HTML_REQUEST_HEADERS, 4000, 1);
@@ -463,7 +483,7 @@ async function resolveFeedUrl(inputUrl: unknown): Promise<string> {
 
   let initialFetchError: unknown;
   try {
-    await fetchFeedXmlWithFallback(normalizedInputUrl);
+    await fetchFeedXmlPreferSystemTool(normalizedInputUrl);
     return normalizedInputUrl;
   } catch (error) {
     initialFetchError = error;
@@ -487,7 +507,7 @@ async function resolveFeedUrl(inputUrl: unknown): Promise<string> {
 
   for (const candidateUrl of Array.from(candidateUrls).slice(0, 6)) {
     try {
-      await fetchFeedXmlWithFallback(candidateUrl);
+      await fetchFeedXmlPreferSystemTool(candidateUrl);
       return candidateUrl;
     } catch {
       // Keep trying.
@@ -931,7 +951,7 @@ export class RssService {
       let workingUrl = feed.url;
       let parsed: Awaited<ReturnType<Parser["parseString"]>>;
       try {
-        const xml = await fetchFeedXmlWithFallback(workingUrl);
+        const xml = await fetchFeedXmlPreferSystemTool(workingUrl);
         parsed = await this.parser.parseString(xml);
       } catch {
         try {
@@ -941,7 +961,7 @@ export class RssService {
           workingUrl = resolvedUrl;
 
           try {
-            const xml = await fetchFeedXmlWithFallback(workingUrl);
+            const xml = await fetchFeedXmlPreferSystemTool(workingUrl);
             parsed = await this.parser.parseString(xml);
           } catch {
             parsed = await this.parser.parseURL(workingUrl);
