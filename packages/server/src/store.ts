@@ -7,6 +7,7 @@ import { DEFAULT_STATE, type ServerState } from "./types.js";
 export class StateStore {
   private readonly db: Low<ServerState>;
   private readonly ready: Promise<void>;
+  private mutationQueue: Promise<void> = Promise.resolve();
 
   constructor(private readonly filePath: string) {
     const adapter = new JSONFile<ServerState>(filePath);
@@ -28,8 +29,11 @@ export class StateStore {
 
   async mutate(mutator: (state: ServerState) => void | Promise<void>): Promise<ServerState> {
     await this.ready;
-    await mutator(this.db.data!);
-    await this.db.write();
+    this.mutationQueue = this.mutationQueue.then(async () => {
+      await mutator(this.db.data!);
+      await this.db.write();
+    });
+    await this.mutationQueue;
     return structuredClone(this.db.data!);
   }
 }

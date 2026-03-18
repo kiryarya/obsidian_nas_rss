@@ -763,9 +763,9 @@ export class RssService {
       ? state.feeds.filter((feed) => feed.id === feedId)
       : state.feeds;
 
-    for (const feed of targetFeeds) {
+    await runInChunks(targetFeeds, 4, async (feed) => {
       await this.refreshSingleFeed(feed.id);
-    }
+    });
 
     return this.listFeeds();
   }

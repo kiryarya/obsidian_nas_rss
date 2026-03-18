@@ -220,9 +220,11 @@ export class NasRssApiClient {
     const response = await requestUrl({
       url: `${baseUrl}${options.path}`,
       method: options.method ?? "GET",
+      contentType: "application/json",
       headers: {
         "Content-Type": "application/json"
       },
+      throw: false,
       body: options.body ? JSON.stringify(options.body) : undefined
     });
 
