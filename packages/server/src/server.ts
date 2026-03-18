@@ -135,6 +135,27 @@ app.post("/api/feeds", async (request, reply) => {
   }
 });
 
+app.patch("/api/feeds/:feedId", async (request, reply) => {
+  const params = request.params as { feedId: string };
+  const title = readStringField(request.body, "title");
+  const url = readStringField(request.body, "url");
+
+  if (!title && !url) {
+    reply.status(400);
+    return { message: "title または url を指定してください" };
+  }
+
+  try {
+    return {
+      feed: await rssService.updateFeed(params.feedId, { title, url })
+    };
+  } catch (error) {
+    request.log.error({ err: error, body: request.body, params }, "update feed failed");
+    reply.status(400);
+    return { message: error instanceof Error ? error.message : String(error) };
+  }
+});
+
 app.post("/api/feeds/import-opml", async (request, reply) => {
   const content = readStringField(request.body, "content");
   if (!content) {

@@ -764,6 +764,58 @@ export class RssService {
     return (await this.listFeeds()).find((feed) => feed.id === newFeed.id)!;
   }
 
+  async updateFeed(feedId: string, updates: { title?: string; url?: string }): Promise<FeedRecord> {
+    const nextTitle = updates.title?.trim();
+    const nextUrl = updates.url ? ensureHttpProtocol(normalizeUrl(updates.url)) : undefined;
+
+    if (updates.title !== undefined && !nextTitle) {
+      throw new Error("フィード名を入力してください");
+    }
+
+    if (updates.url !== undefined && !nextUrl) {
+      throw new Error("有効な Feed URL を入力してください");
+    }
+
+    let updated: FeedRecord | undefined;
+    let shouldRefresh = false;
+
+    await this.store.mutate((state) => {
+      const feed = state.feeds.find((entry) => entry.id === feedId);
+      if (!feed) {
+        throw new Error("フィードが見つかりません");
+      }
+
+      if (nextUrl && state.feeds.some((entry) => entry.id !== feedId && entry.url === nextUrl)) {
+        throw new Error("同じ URL のフィードは既に登録されています");
+      }
+
+      if (nextTitle) {
+        feed.title = nextTitle;
+      }
+
+      if (nextUrl && nextUrl !== feed.url) {
+        feed.url = nextUrl;
+        feed.siteUrl = undefined;
+        feed.description = undefined;
+        feed.faviconUrl = undefined;
+        feed.errorMessage = undefined;
+        feed.lastFetchedAt = undefined;
+        feed.status = "idle";
+        state.articles = state.articles.filter((article) => article.feedId !== feedId);
+        shouldRefresh = true;
+      }
+
+      feed.updatedAt = nowIso();
+      updated = { ...feed };
+    });
+
+    if (shouldRefresh) {
+      void this.refreshSingleFeed(feedId);
+    }
+
+    return updated!;
+  }
+
   async importOpml(opmlContent: string): Promise<OpmlImportResult> {
     const outlineTags = opmlContent.match(/<outline\b[^>]*\/?>/gi) ?? [];
     const state = await this.store.read();

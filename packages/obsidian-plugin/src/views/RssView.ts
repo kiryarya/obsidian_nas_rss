@@ -156,6 +156,7 @@ export class NasRssView extends ItemView {
   private unreadSessionKey = "";
   private unreadSessionTotal = 0;
   private readonly unreadSessionPages = new Map<number, ArticleDto[]>();
+  private draggedFeedId: string | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -455,6 +456,9 @@ export class NasRssView extends ItemView {
         this.openGroupMenu(group, event);
       };
 
+      this.bindGroupDropTarget(sectionEl, group.id);
+      this.bindGroupDropTarget(headerRowEl, group.id);
+
       if (!this.state.collapsedGroupIds.has(group.id)) {
         const feedsEl = sectionEl.createDiv({ cls: "nas-rss-group-feeds" });
         for (const feed of groupFeeds) {
@@ -504,12 +508,29 @@ export class NasRssView extends ItemView {
     const feedEl = parentEl.createDiv({
       cls: `nas-rss-feed-item ${this.isFeedSelected(feed.id) ? "is-active" : ""}`
     });
+    feedEl.draggable = true;
     feedEl.onclick = () => {
       this.articleScrollTop = 0;
       this.state.currentPage = 1;
       this.state.selectedSource = `feed:${feed.id}`;
       this.resetUnreadSession();
       void this.refresh();
+    };
+    feedEl.ondragstart = (event) => {
+      this.draggedFeedId = feed.id;
+      feedEl.addClass("is-dragging");
+      event.dataTransfer?.setData("text/plain", feed.id);
+      event.dataTransfer?.setData("application/x-nas-rss-feed-id", feed.id);
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+      }
+    };
+    feedEl.ondragend = () => {
+      this.draggedFeedId = null;
+      feedEl.removeClass("is-dragging");
+      this.containerEl.querySelectorAll(".is-drop-target").forEach((element) => {
+        element.removeClass("is-drop-target");
+      });
     };
 
     const infoEl = feedEl.createDiv({ cls: "nas-rss-feed-info" });
@@ -546,7 +567,7 @@ export class NasRssView extends ItemView {
     });
     actionsButton.onclick = (event) => {
       event.stopPropagation();
-      this.openFeedMenu(feed, event);
+      this.openFeedActionsMenu(feed, event);
     };
   }
 
@@ -893,6 +914,112 @@ export class NasRssView extends ItemView {
     this.render();
   }
 
+  private bindGroupDropTarget(targetEl: HTMLElement, groupId: string): void {
+    targetEl.ondragover = (event) => {
+      if (!this.draggedFeedId) {
+        return;
+      }
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+      }
+      targetEl.addClass("is-drop-target");
+    };
+    targetEl.ondragenter = (event) => {
+      if (!this.draggedFeedId) {
+        return;
+      }
+      event.preventDefault();
+      targetEl.addClass("is-drop-target");
+    };
+    targetEl.ondragleave = (event) => {
+      if (event.relatedTarget instanceof Node && targetEl.contains(event.relatedTarget)) {
+        return;
+      }
+      targetEl.removeClass("is-drop-target");
+    };
+    targetEl.ondrop = (event) => {
+      event.preventDefault();
+      targetEl.removeClass("is-drop-target");
+      const draggedFeedId =
+        event.dataTransfer?.getData("application/x-nas-rss-feed-id") ||
+        event.dataTransfer?.getData("text/plain") ||
+        this.draggedFeedId;
+      this.draggedFeedId = null;
+      if (!draggedFeedId) {
+        return;
+      }
+      void this.assignFeedToGroup(draggedFeedId, groupId);
+    };
+  }
+
+  private openFeedActionsMenu(feed: FeedDto, event: MouseEvent): void {
+    const menu = new Menu();
+    menu.addItem((item) =>
+      item
+        .setTitle("この Feed を更新")
+        .onClick(() => {
+          void this.handleServerRefresh(feed.id);
+        })
+    );
+    menu.addItem((item) =>
+      item
+        .setTitle("サイト名を変更")
+        .onClick(() => {
+          void this.renameFeed(feed);
+        })
+    );
+    menu.addItem((item) =>
+      item
+        .setTitle("Feed URLを変更")
+        .onClick(() => {
+          void this.updateFeedUrl(feed);
+        })
+    );
+
+    if (feed.groupId) {
+      menu.addItem((item) =>
+        item
+          .setTitle("未分類に戻す")
+          .onClick(() => {
+            void this.assignFeedToGroup(feed.id, undefined);
+          })
+      );
+    }
+
+    for (const group of this.state.groups) {
+      if (group.id === feed.groupId) {
+        continue;
+      }
+
+      menu.addItem((item) =>
+        item
+          .setTitle(`「${group.name}」へ移動`)
+          .onClick(() => {
+            void this.assignFeedToGroup(feed.id, group.id);
+          })
+      );
+    }
+
+    menu.addItem((item) =>
+      item
+        .setTitle("新しいグループを作成して移動")
+        .onClick(() => {
+          void this.createGroupAndAssignFeed(feed.id);
+        })
+    );
+
+    menu.addSeparator();
+    menu.addItem((item) =>
+      item
+        .setTitle("Feed を削除")
+        .onClick(() => {
+          void this.deleteFeed(feed);
+        })
+    );
+    menu.showAtMouseEvent(event);
+  }
+
   private openFeedMenu(feed: FeedDto, event: MouseEvent): void {
     const menu = new Menu();
     menu.addItem((item) =>
@@ -1023,6 +1150,46 @@ export class NasRssView extends ItemView {
       await this.refresh();
     } catch (error) {
       new Notice(`グループ名の更新に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async renameFeed(feed: FeedDto): Promise<void> {
+    const nextTitle = await new TextInputModal(
+      this.plugin,
+      "サイト名を変更",
+      "新しいサイト名",
+      feed.title
+    ).openAndWait();
+    if (!nextTitle || nextTitle === feed.title) {
+      return;
+    }
+
+    try {
+      await this.plugin.apiClient.updateFeed(feed.id, { title: nextTitle });
+      new Notice("サイト名を更新しました。");
+      await this.refresh();
+    } catch (error) {
+      new Notice(`サイト名の更新に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async updateFeedUrl(feed: FeedDto): Promise<void> {
+    const nextUrl = await new TextInputModal(
+      this.plugin,
+      "Feed URLを変更",
+      "https://example.com/feed",
+      feed.url
+    ).openAndWait();
+    if (!nextUrl || nextUrl === feed.url) {
+      return;
+    }
+
+    try {
+      await this.plugin.apiClient.updateFeed(feed.id, { url: nextUrl });
+      new Notice("Feed URLを更新しました。再取得を開始します。");
+      await this.refresh();
+    } catch (error) {
+      new Notice(`Feed URLの更新に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

@@ -34,6 +34,15 @@ export class NasRssApiClient {
     return response.feed;
   }
 
+  async updateFeed(feedId: string, updates: { title?: string; url?: string }): Promise<FeedDto> {
+    const response = await this.requestJson<{ feed: FeedDto }>({
+      method: "PATCH",
+      path: `/api/feeds/${encodeURIComponent(feedId)}`,
+      body: updates
+    });
+    return response.feed;
+  }
+
   async getGroups(): Promise<FeedGroupDto[]> {
     const response = await this.requestJson<{ groups: FeedGroupDto[] }>({
       path: "/api/groups"

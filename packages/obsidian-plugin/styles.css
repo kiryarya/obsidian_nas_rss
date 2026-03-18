@@ -116,6 +116,12 @@
   cursor: pointer;
 }
 
+.nas-rss-group-section.is-drop-target,
+.nas-rss-group-header.is-drop-target {
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  outline: 1px dashed color-mix(in srgb, var(--interactive-accent) 55%, var(--background-modifier-border));
+}
+
 .nas-rss-group-header-left {
   display: flex;
   align-items: center;
@@ -159,6 +165,10 @@
   gap: 8px;
   padding: 9px 10px;
   cursor: pointer;
+}
+
+.nas-rss-feed-item.is-dragging {
+  opacity: 0.45;
 }
 
 .nas-rss-feed-info {
