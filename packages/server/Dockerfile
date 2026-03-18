@@ -16,6 +16,7 @@ RUN pnpm --filter @obsidian-rss-nas/server deploy --prod --legacy /prod/server
 
 FROM node:24-alpine AS runtime
 WORKDIR /app
+RUN apk add --no-cache curl
 COPY --from=deploy /prod/server ./
 
 ENV HOST=0.0.0.0

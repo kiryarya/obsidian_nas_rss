@@ -356,10 +356,16 @@ async function fetchFeedXml(url: string): Promise<string> {
 async function fetchFeedXmlWithFallback(url: string): Promise<string> {
   try {
     return await fetchFeedXml(url);
-  } catch (error) {
-    const fallbackBody = await fetchWithSystemTool(url).catch(() => undefined);
+  } catch (primaryError) {
+    let fallbackBody: string | undefined;
+    let fallbackError: unknown;
+    try {
+      fallbackBody = await fetchWithSystemTool(url);
+    } catch (error) {
+      fallbackError = error;
+    }
     if (!fallbackBody) {
-      throw error;
+      throw fallbackError instanceof Error ? fallbackError : primaryError;
     }
 
     if (looksLikeHtml(fallbackBody, "application/xml")) {

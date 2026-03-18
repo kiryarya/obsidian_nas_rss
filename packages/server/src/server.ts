@@ -36,7 +36,11 @@ const rssService = new RssService(
   serverConfig.readRetentionDays
 );
 const refreshJobManager = new RefreshJobManager();
-const app = Fastify({ logger: true });
+const app = Fastify({
+  logger: {
+    timestamp: () => `,"time":"${new Date().toISOString()}"`
+  }
+});
 
 await app.register(cors, {
   origin: true
@@ -59,7 +63,7 @@ app.post("/api/groups", async (request, reply) => {
   const name = readStringField(request.body, "name");
   if (!name) {
     reply.status(400);
-    return { message: "name を入力してください" };
+    return { message: "name を指定してください" };
   }
 
   try {
@@ -78,7 +82,7 @@ app.patch("/api/groups/:groupId", async (request, reply) => {
   const name = readStringField(request.body, "name");
   if (!name) {
     reply.status(400);
-    return { message: "name を入力してください" };
+    return { message: "name を指定してください" };
   }
 
   try {
@@ -117,7 +121,7 @@ app.post("/api/feeds", async (request, reply) => {
   const title = readStringField(request.body, "title");
   if (!url) {
     reply.status(400);
-    return { message: "url を入力してください" };
+    return { message: "url を指定してください" };
   }
 
   try {

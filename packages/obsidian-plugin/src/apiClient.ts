@@ -217,15 +217,14 @@ export class NasRssApiClient {
 
   private async requestJson<T>(options: RequestOptions): Promise<T> {
     const baseUrl = this.getBaseUrl().replace(/\/$/, "");
+    const hasBody = options.body !== undefined;
     const response = await requestUrl({
       url: `${baseUrl}${options.path}`,
       method: options.method ?? "GET",
-      contentType: "application/json",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      contentType: hasBody ? "application/json" : undefined,
+      headers: hasBody ? { "Content-Type": "application/json" } : undefined,
       throw: false,
-      body: options.body ? JSON.stringify(options.body) : undefined
+      body: hasBody ? JSON.stringify(options.body) : undefined
     });
 
     if (response.status >= 400) {
