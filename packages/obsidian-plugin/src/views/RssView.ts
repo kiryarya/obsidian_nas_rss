@@ -880,11 +880,14 @@ export class NasRssView extends ItemView {
       return;
     }
 
+    const progressNotice = new Notice("FEED を追加しています...", 0);
     try {
       await this.plugin.apiClient.addFeed(url);
+      progressNotice.hide();
       new Notice("フィードを追加しました。");
       await this.refresh();
     } catch (error) {
+      progressNotice.hide();
       new Notice(`フィード追加に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
     }
   }

@@ -59,6 +59,14 @@ function normalizeUrl(url: string): string {
   return url.trim();
 }
 
+function ensureHttpProtocol(url: string): string {
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+
+  return `https://${url}`;
+}
+
 function createId(seed: string): string {
   return createHash("sha1").update(seed).digest("hex");
 }
@@ -287,6 +295,103 @@ async function fetchOpenGraphImage(url: string): Promise<string | undefined> {
   }
 }
 
+function extractDiscoveredFeedUrls(html: string, pageUrl: string): string[] {
+  const feedUrls: string[] = [];
+  const linkTags = html.match(/<link\b[^>]*>/gi) ?? [];
+  for (const tag of linkTags) {
+    const relMatch = tag.match(/\brel=["']([^"']+)["']/i);
+    const typeMatch = tag.match(/\btype=["']([^"']+)["']/i);
+    const hrefMatch = tag.match(/\bhref=["']([^"']+)["']/i);
+    const rel = relMatch?.[1]?.toLowerCase() ?? "";
+    const type = typeMatch?.[1]?.toLowerCase() ?? "";
+    const href = hrefMatch?.[1];
+
+    if (!rel.includes("alternate") || !href) {
+      continue;
+    }
+
+    if (!type.includes("rss") && !type.includes("atom") && !type.includes("xml") && !type.includes("json")) {
+      continue;
+    }
+
+    const normalized = normalizeImageUrl(href, pageUrl);
+    if (normalized) {
+      feedUrls.push(normalized);
+    }
+  }
+
+  return feedUrls;
+}
+
+function buildCommonFeedUrls(pageUrl: string): string[] {
+  const candidates = new Set<string>();
+
+  try {
+    const url = new URL(pageUrl);
+    const pathSegments = url.pathname.split("/").filter(Boolean);
+    const bases = new Set<string>(["/"]);
+
+    if (pathSegments.length > 0) {
+      for (let count = pathSegments.length; count >= 1; count -= 1) {
+        bases.add(`/${pathSegments.slice(0, count).join("/")}`);
+      }
+    }
+
+    for (const base of bases) {
+      for (const suffix of ["/feed", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml"]) {
+        const pathname = base === "/" ? suffix : `${base}${suffix}`;
+        candidates.add(new URL(pathname, url.origin).toString());
+      }
+    }
+  } catch {
+    return [];
+  }
+
+  return Array.from(candidates);
+}
+
+async function resolveFeedUrl(inputUrl: string): Promise<string> {
+  const normalizedInputUrl = ensureHttpProtocol(normalizeUrl(inputUrl));
+  if (!normalizedInputUrl) {
+    throw new Error("FEED URL を入力してください");
+  }
+
+  if (normalizedInputUrl.match(/\.(xml|rss|atom|json)(\?.*)?$/i)) {
+    return normalizedInputUrl;
+  }
+
+  try {
+    await fetchFeedXml(normalizedInputUrl);
+    return normalizedInputUrl;
+  } catch {
+    // Try auto discovery below.
+  }
+
+  const candidateUrls = new Set(buildCommonFeedUrls(normalizedInputUrl));
+
+  try {
+    const { body, contentType } = await fetchText(normalizedInputUrl, HTML_REQUEST_HEADERS, 10000);
+    if (looksLikeHtml(body, contentType)) {
+      for (const discoveredUrl of extractDiscoveredFeedUrls(body, normalizedInputUrl)) {
+        candidateUrls.add(discoveredUrl);
+      }
+    }
+  } catch {
+    // HTML discovery is best-effort only.
+  }
+
+  for (const candidateUrl of candidateUrls) {
+    try {
+      await fetchFeedXml(candidateUrl);
+      return candidateUrl;
+    } catch {
+      // Keep trying.
+    }
+  }
+
+  throw new Error("指定した URL から有効な FEED を見つけられませんでした");
+}
+
 export class RssService {
   private lastCleanupAt = 0;
   private readonly parser = new Parser({
@@ -465,7 +570,7 @@ export class RssService {
   }
 
   async addFeed(url: string, title?: string): Promise<FeedRecord> {
-    const normalizedUrl = normalizeUrl(url);
+    const normalizedUrl = await resolveFeedUrl(url);
     if (!normalizedUrl) {
       throw new Error("フィード URL が空です。");
     }
