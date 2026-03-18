@@ -33,6 +33,7 @@ export default class NasRssViewerPlugin extends Plugin {
   apiClient = new NasRssApiClient(() => this.settings.serverBaseUrl);
   private autoRefreshIntervalId: number | null = null;
   private settingsSaveQueue: Promise<void> = Promise.resolve();
+  private lastArticleScrollTop = 0;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -123,5 +124,13 @@ export default class NasRssViewerPlugin extends Plugin {
   async startServerRefresh(feedId?: string): Promise<void> {
     await this.apiClient.startRefresh(feedId);
     await this.refreshOpenViews();
+  }
+
+  getLastArticleScrollTop(): number {
+    return this.lastArticleScrollTop;
+  }
+
+  setLastArticleScrollTop(value: number): void {
+    this.lastArticleScrollTop = Math.max(0, value);
   }
 }

@@ -164,6 +164,7 @@ export class NasRssView extends ItemView {
   ) {
     super(leaf);
     this.noteManager = new NoteManager(plugin.app);
+    this.articleScrollTop = plugin.getLastArticleScrollTop();
     this.state = {
       feeds: [],
       groups: [],
@@ -425,7 +426,7 @@ export class NasRssView extends ItemView {
         cls: `nas-rss-group-header ${this.isGroupSelected(group.id) ? "is-active" : ""}`
       });
       headerRowEl.onclick = () => {
-        this.articleScrollTop = 0;
+        this.resetArticleScrollTop();
         this.state.currentPage = 1;
         this.state.selectedSource = `group:${group.id}`;
         this.resetUnreadSession();
@@ -496,7 +497,7 @@ export class NasRssView extends ItemView {
       text: label
     });
     button.onclick = () => {
-      this.articleScrollTop = 0;
+      this.resetArticleScrollTop();
       this.state.currentPage = 1;
       this.state.selectedSource = source;
       this.resetUnreadSession();
@@ -510,7 +511,7 @@ export class NasRssView extends ItemView {
     });
     feedEl.draggable = true;
     feedEl.onclick = () => {
-      this.articleScrollTop = 0;
+      this.resetArticleScrollTop();
       this.state.currentPage = 1;
       this.state.selectedSource = `feed:${feed.id}`;
       this.resetUnreadSession();
@@ -597,7 +598,7 @@ export class NasRssView extends ItemView {
     searchInput.oninput = () => {
       this.state.searchQuery = searchInput.value;
       this.state.currentPage = 1;
-      this.articleScrollTop = 0;
+      this.resetArticleScrollTop();
       this.resetUnreadSession();
       void this.refresh();
     };
@@ -654,6 +655,7 @@ export class NasRssView extends ItemView {
     const contentEl = mainEl.createDiv({ cls: "nas-rss-content" });
     contentEl.onscroll = () => {
       this.articleScrollTop = contentEl.scrollTop;
+      this.plugin.setLastArticleScrollTop(this.articleScrollTop);
     };
 
     if (this.state.loading) {
@@ -951,6 +953,11 @@ export class NasRssView extends ItemView {
       }
       void this.assignFeedToGroup(draggedFeedId, groupId);
     };
+  }
+
+  private resetArticleScrollTop(): void {
+    this.articleScrollTop = 0;
+    this.plugin.setLastArticleScrollTop(0);
   }
 
   private openFeedActionsMenu(feed: FeedDto, event: MouseEvent): void {
@@ -1346,13 +1353,13 @@ export class NasRssView extends ItemView {
     if (this.state.selectedSource === "unread") {
       this.state.currentPage = Math.max(1, this.state.currentPage - 1);
       this.state.articles = this.unreadSessionPages.get(this.state.currentPage) ?? [];
-      this.articleScrollTop = 0;
+      this.resetArticleScrollTop();
       this.render();
       return;
     }
 
     this.state.currentPage = Math.max(1, this.state.currentPage - 1);
-    this.articleScrollTop = 0;
+    this.resetArticleScrollTop();
     await this.refresh();
   }
 
@@ -1390,7 +1397,7 @@ export class NasRssView extends ItemView {
       this.state.currentPage = nextPage;
       this.state.totalArticles = this.unreadSessionTotal;
       this.state.articles = this.unreadSessionPages.get(nextPage) ?? [];
-      this.articleScrollTop = 0;
+      this.resetArticleScrollTop();
       this.render();
       return;
     }
@@ -1404,7 +1411,7 @@ export class NasRssView extends ItemView {
 
     this.state.currentPage += 1;
     this.state.currentPage = this.normalizePage(this.state.currentPage, this.state.totalArticles);
-    this.articleScrollTop = 0;
+    this.resetArticleScrollTop();
     await this.refresh();
   }
 
