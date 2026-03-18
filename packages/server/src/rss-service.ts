@@ -816,7 +816,16 @@ export class RssService {
     }
 
     try {
-      const xml = await fetchFeedXml(feed.url);
+      let workingUrl = feed.url;
+      let xml: string;
+      try {
+        xml = await fetchFeedXml(workingUrl);
+      } catch {
+        const resolvedUrl = await resolveFeedUrl(feed.url);
+        workingUrl = resolvedUrl;
+        xml = await fetchFeedXml(workingUrl);
+      }
+
       const parsed = await this.parser.parseString(xml);
       const fetchedAt = nowIso();
       const ogImageCandidates: OgImageCandidate[] = [];
@@ -827,6 +836,7 @@ export class RssService {
           return;
         }
 
+        mutableFeed.url = workingUrl;
         mutableFeed.title = parsed.title || mutableFeed.title;
         mutableFeed.siteUrl = parsed.link || mutableFeed.siteUrl;
         mutableFeed.faviconUrl = buildFaviconUrl(parsed.link || mutableFeed.siteUrl);

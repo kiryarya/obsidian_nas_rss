@@ -413,24 +413,24 @@
   gap: 8px;
 }
 
-.nas-rss-read-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
+.nas-rss-read-indicator {
+  width: 14px;
+  height: 14px;
+  margin-bottom: 8px;
   border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 700;
+  border: 2px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  box-shadow: inset 0 0 0 2px var(--background-primary);
 }
 
-.nas-rss-read-badge.is-unread {
-  background: color-mix(in srgb, var(--color-green) 18%, transparent);
-  color: var(--text-normal);
+.nas-rss-read-indicator.is-unread {
+  border-color: color-mix(in srgb, var(--color-green) 80%, var(--background-modifier-border));
+  background: color-mix(in srgb, var(--color-green) 80%, transparent);
 }
 
-.nas-rss-read-badge.is-read {
+.nas-rss-read-indicator.is-read {
+  border-color: color-mix(in srgb, var(--text-muted) 55%, var(--background-modifier-border));
   background: color-mix(in srgb, var(--background-modifier-border) 55%, transparent);
-  color: var(--text-muted);
 }
 
 .nas-rss-card-action,
@@ -490,6 +490,13 @@
   color: var(--text-muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.nas-rss-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 @media (max-width: 960px) {

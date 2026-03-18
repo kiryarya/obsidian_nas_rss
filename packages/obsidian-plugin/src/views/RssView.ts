@@ -1,4 +1,4 @@
-import { ItemView, Menu, Notice, WorkspaceLeaf } from "obsidian";
+import { ItemView, Menu, Modal, Notice, Setting, WorkspaceLeaf } from "obsidian";
 import { NoteManager } from "../NoteManager";
 import type NasRssViewerPlugin from "../main";
 import type { ArticleDto, ArticlePageDto, FeedDto, FeedGroupDto, RefreshJobDto } from "../types";
@@ -42,6 +42,84 @@ function formatDateTime(value: string): string {
   return new Date(value).toLocaleString("ja-JP");
 }
 
+class TextInputModal extends Modal {
+  private value: string;
+  private resolver?: (value: string | null) => void;
+
+  constructor(
+    plugin: NasRssViewerPlugin,
+    private readonly title: string,
+    private readonly placeholder: string,
+    initialValue = ""
+  ) {
+    super(plugin.app);
+    this.value = initialValue;
+  }
+
+  openAndWait(): Promise<string | null> {
+    return new Promise((resolve) => {
+      this.resolver = resolve;
+      this.open();
+    });
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h3", { text: this.title });
+
+    let inputEl: HTMLInputElement | null = null;
+    new Setting(contentEl).addText((text) => {
+      inputEl = text.inputEl;
+      text
+        .setPlaceholder(this.placeholder)
+        .setValue(this.value)
+        .onChange((value) => {
+          this.value = value;
+        });
+      text.inputEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          this.submit();
+        }
+      });
+    });
+
+    const actionsEl = contentEl.createDiv({ cls: "nas-rss-modal-actions" });
+    const cancelButton = actionsEl.createEl("button", {
+      cls: "nas-rss-secondary-button",
+      text: "キャンセル"
+    });
+    cancelButton.onclick = () => this.close();
+
+    const submitButton = actionsEl.createEl("button", {
+      cls: "nas-rss-primary-button",
+      text: "OK"
+    });
+    submitButton.onclick = () => this.submit();
+
+    window.setTimeout(() => {
+      inputEl?.focus();
+      inputEl?.select();
+    }, 0);
+  }
+
+  onClose(): void {
+    const resolver = this.resolver;
+    this.resolver = undefined;
+    this.contentEl.empty();
+    resolver?.(null);
+  }
+
+  private submit(): void {
+    const resolver = this.resolver;
+    this.resolver = undefined;
+    const trimmedValue = this.value.trim();
+    this.close();
+    resolver?.(trimmedValue.length > 0 ? trimmedValue : null);
+  }
+}
+
 async function openInDefaultBrowser(url: string): Promise<void> {
   const electronRequire = (window as Window & {
     require?: (moduleName: string) => { shell?: { openExternal?: (targetUrl: string) => Promise<void> | void } };
@@ -54,6 +132,18 @@ async function openInDefaultBrowser(url: string): Promise<void> {
   }
 
   window.open(url, "_blank", "noopener");
+}
+
+async function openInWebViewer(plugin: NasRssViewerPlugin, url: string): Promise<void> {
+  const leaf = plugin.app.workspace.getLeaf("tab");
+  await leaf.setViewState({
+    type: "webviewer",
+    active: true,
+    state: {
+      url
+    }
+  } as never);
+  await plugin.app.workspace.revealLeaf(leaf);
 }
 
 export class NasRssView extends ItemView {
@@ -568,7 +658,7 @@ export class NasRssView extends ItemView {
         cls: `nas-rss-card ${article.isRead ? "is-read" : "is-unread"}`
       });
       cardEl.onclick = async () => {
-        await this.openArticle(article.id);
+        await this.openArticle(article.id, "webviewer");
       };
       cardEl.onmousedown = (event) => {
         if (event.button === 1) {
@@ -579,7 +669,7 @@ export class NasRssView extends ItemView {
         if (event.button === 1) {
           event.preventDefault();
           event.stopPropagation();
-          void this.openArticle(article.id);
+          void this.openArticle(article.id, "external");
         }
       };
 
@@ -621,10 +711,11 @@ export class NasRssView extends ItemView {
       });
 
       const footerEl = bodyEl.createDiv({ cls: "nas-rss-card-footer" });
-      footerEl.createDiv({
-        cls: `nas-rss-read-badge ${article.isRead ? "is-read" : "is-unread"}`,
-        text: article.isRead ? "既読" : "未読"
+      const readIndicatorEl = footerEl.createDiv({
+        cls: `nas-rss-read-indicator ${article.isRead ? "is-read" : "is-unread"}`
       });
+      readIndicatorEl.setAttribute("aria-label", article.isRead ? "既読" : "未読");
+      readIndicatorEl.setAttribute("title", article.isRead ? "既読" : "未読");
 
       const actionsEl = footerEl.createDiv({ cls: "nas-rss-card-actions" });
       const readLaterButton = actionsEl.createEl("button", {
@@ -875,7 +966,11 @@ export class NasRssView extends ItemView {
   }
 
   private async handleAddFeed(): Promise<void> {
-    const url = window.prompt("追加する RSS フィードの URL");
+    const url = await new TextInputModal(
+      this.plugin,
+      "FEED を追加",
+      "https://example.com/feed"
+    ).openAndWait();
     if (!url) {
       return;
     }
@@ -893,7 +988,11 @@ export class NasRssView extends ItemView {
   }
 
   private async handleAddGroup(): Promise<void> {
-    const name = window.prompt("作成するグループ名");
+    const name = await new TextInputModal(
+      this.plugin,
+      "グループを追加",
+      "グループ名"
+    ).openAndWait();
     if (!name) {
       return;
     }
@@ -908,7 +1007,12 @@ export class NasRssView extends ItemView {
   }
 
   private async renameGroup(group: FeedGroupDto): Promise<void> {
-    const nextName = window.prompt("新しいグループ名", group.name);
+    const nextName = await new TextInputModal(
+      this.plugin,
+      "グループ名を変更",
+      "新しいグループ名",
+      group.name
+    ).openAndWait();
     if (!nextName || nextName === group.name) {
       return;
     }
@@ -940,7 +1044,11 @@ export class NasRssView extends ItemView {
   }
 
   private async createGroupAndAssignFeed(feedId: string): Promise<void> {
-    const name = window.prompt("新しいグループ名");
+    const name = await new TextInputModal(
+      this.plugin,
+      "新しいグループを作成",
+      "グループ名"
+    ).openAndWait();
     if (!name) {
       return;
     }
@@ -1133,7 +1241,7 @@ export class NasRssView extends ItemView {
     await this.refresh();
   }
 
-  private async openArticle(articleId: string): Promise<void> {
+  private async openArticle(articleId: string, target: "webviewer" | "external"): Promise<void> {
     const article = this.state.articles.find((entry) => entry.id === articleId);
     if (!article) {
       return;
@@ -1143,7 +1251,17 @@ export class NasRssView extends ItemView {
       await this.markArticleRead(articleId);
     }
 
-    await openInDefaultBrowser(article.link);
+    if (target === "external") {
+      await openInDefaultBrowser(article.link);
+      return;
+    }
+
+    try {
+      await openInWebViewer(this.plugin, article.link);
+    } catch {
+      new Notice("Web viewer を開けなかったため、既定ブラウザで開きます。");
+      await openInDefaultBrowser(article.link);
+    }
   }
 
   private async toggleReadLater(articleId: string): Promise<void> {
