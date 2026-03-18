@@ -250,10 +250,15 @@ async function runInChunks<T>(values: T[], size: number, task: (value: T) => Pro
   }
 }
 
-async function fetchText(url: string, headers: HeadersInit, timeoutMs: number): Promise<{ body: string; contentType: string }> {
+async function fetchText(
+  url: string,
+  headers: HeadersInit,
+  timeoutMs: number,
+  attempts = 1
+): Promise<{ body: string; contentType: string }> {
   let lastError: unknown;
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       const response = await fetch(url, {
         headers,
@@ -278,7 +283,7 @@ async function fetchText(url: string, headers: HeadersInit, timeoutMs: number): 
 }
 
 async function fetchFeedXml(url: string): Promise<string> {
-  const { body, contentType } = await fetchText(url, FEED_REQUEST_HEADERS, 15000);
+  const { body, contentType } = await fetchText(url, FEED_REQUEST_HEADERS, 7000, 1);
   if (looksLikeHtml(body, contentType)) {
     throw new Error("RSS/XML ではなく HTML が返されました");
   }
@@ -288,7 +293,7 @@ async function fetchFeedXml(url: string): Promise<string> {
 
 async function fetchOpenGraphImage(url: string): Promise<string | undefined> {
   try {
-    const { body } = await fetchText(url, HTML_REQUEST_HEADERS, 5000);
+    const { body } = await fetchText(url, HTML_REQUEST_HEADERS, 4000, 1);
     return parseMetaImageUrl(body, url);
   } catch {
     return undefined;
@@ -370,7 +375,7 @@ async function resolveFeedUrl(inputUrl: string): Promise<string> {
   const candidateUrls = new Set(buildCommonFeedUrls(normalizedInputUrl));
 
   try {
-    const { body, contentType } = await fetchText(normalizedInputUrl, HTML_REQUEST_HEADERS, 10000);
+    const { body, contentType } = await fetchText(normalizedInputUrl, HTML_REQUEST_HEADERS, 4000, 1);
     if (looksLikeHtml(body, contentType)) {
       for (const discoveredUrl of extractDiscoveredFeedUrls(body, normalizedInputUrl)) {
         candidateUrls.add(discoveredUrl);
