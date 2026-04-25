@@ -150,7 +150,9 @@ export class NasRssView extends ItemView {
   private readonly noteManager: NoteManager;
   private state: ViewStateModel;
   private refreshPollTimer: number | null = null;
+  private readonly articlePageCache = new Map<string, ArticlePageDto>();
   private readonly readInFlightIds = new Set<string>();
+  private readonly readLaterInFlightIds = new Set<string>();
   private readonly savedArticleIds = new Set<string>();
   private articleScrollTop = 0;
   private unreadSessionKey = "";
@@ -249,58 +251,166 @@ export class NasRssView extends ItemView {
   }
 
   private async loadArticlesForSelection(): Promise<ArticlePageDto> {
+    return this.loadArticlePageAt(this.state.currentPage);
+  }
+
+  private getCurrentSearchQuery(): string | undefined {
+    return this.state.searchQuery.trim() || undefined;
+  }
+
+  private getArticlePageCacheKey(page: number, query?: string): string {
+    return `${this.state.selectedSource}::${query ?? ""}::${this.getItemsPerPage()}::${page}`;
+  }
+
+  private getCachedArticlePage(page: number, query?: string): ArticlePageDto | undefined {
+    const cached = this.articlePageCache.get(this.getArticlePageCacheKey(page, query));
+    if (!cached) {
+      return undefined;
+    }
+
+    return {
+      articles: cached.articles.slice(),
+      total: cached.total
+    };
+  }
+
+  private cacheArticlePage(page: number, query: string | undefined, articlePage: ArticlePageDto): void {
+    if (this.state.selectedSource === "unread") {
+      return;
+    }
+
+    this.articlePageCache.set(this.getArticlePageCacheKey(page, query), {
+      articles: articlePage.articles.slice(),
+      total: articlePage.total
+    });
+  }
+
+  private resetArticleCaches(): void {
+    this.articlePageCache.clear();
+    this.resetUnreadSession();
+  }
+
+  private async loadArticlePageAt(
+    page: number,
+    options: {
+      useCache?: boolean;
+      prefetchAdjacent?: boolean;
+    } = {}
+  ): Promise<ArticlePageDto> {
     const selectedFeedId = this.getSelectedFeedId();
     const selectedGroupId = this.getSelectedGroupId();
     const limit = this.getItemsPerPage();
-    const query = this.state.searchQuery.trim() || undefined;
+    const query = this.getCurrentSearchQuery();
 
     if (this.state.selectedSource === "unread") {
       return this.loadUnreadSessionPage(query, limit);
     }
 
-    const offset = (this.normalizePage(this.state.currentPage, this.state.totalArticles || limit) - 1) * limit;
+    const normalizedPage = this.normalizePage(page, this.state.totalArticles || limit);
+    if (options.useCache !== false) {
+      const cached = this.getCachedArticlePage(normalizedPage, query);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const offset = (normalizedPage - 1) * limit;
+    let articlePage: ArticlePageDto;
 
     if (this.state.selectedSource === "read") {
-      return this.plugin.apiClient.getArticles({
+      articlePage = await this.plugin.apiClient.getArticles({
         readOnly: true,
         query,
         offset,
         limit
       });
+      this.cacheArticlePage(normalizedPage, query, articlePage);
+      if (options.prefetchAdjacent !== false) {
+        void this.prefetchNextArticlePage(normalizedPage, query, articlePage.total);
+      }
+      return articlePage;
     }
 
     if (this.state.selectedSource === "read-later") {
-      return this.plugin.apiClient.getArticles({
+      articlePage = await this.plugin.apiClient.getArticles({
         readLaterOnly: true,
         query,
         offset,
         limit
       });
+      this.cacheArticlePage(normalizedPage, query, articlePage);
+      if (options.prefetchAdjacent !== false) {
+        void this.prefetchNextArticlePage(normalizedPage, query, articlePage.total);
+      }
+      return articlePage;
     }
 
     if (selectedFeedId) {
-      return this.plugin.apiClient.getArticles({
+      articlePage = await this.plugin.apiClient.getArticles({
         feedId: selectedFeedId,
         query,
         offset,
         limit
       });
+      this.cacheArticlePage(normalizedPage, query, articlePage);
+      if (options.prefetchAdjacent !== false) {
+        void this.prefetchNextArticlePage(normalizedPage, query, articlePage.total);
+      }
+      return articlePage;
     }
 
     if (selectedGroupId) {
-      return this.plugin.apiClient.getArticles({
+      articlePage = await this.plugin.apiClient.getArticles({
         groupId: selectedGroupId,
         query,
         offset,
         limit
       });
+      this.cacheArticlePage(normalizedPage, query, articlePage);
+      if (options.prefetchAdjacent !== false) {
+        void this.prefetchNextArticlePage(normalizedPage, query, articlePage.total);
+      }
+      return articlePage;
     }
 
-    return this.plugin.apiClient.getArticles({
+    articlePage = await this.plugin.apiClient.getArticles({
       query,
       offset,
       limit
     });
+    this.cacheArticlePage(normalizedPage, query, articlePage);
+    if (options.prefetchAdjacent !== false) {
+      void this.prefetchNextArticlePage(normalizedPage, query, articlePage.total);
+    }
+    return articlePage;
+  }
+
+  private async prefetchNextArticlePage(
+    currentPage: number,
+    query: string | undefined,
+    totalArticles: number
+  ): Promise<void> {
+    if (this.state.selectedSource === "unread") {
+      return;
+    }
+
+    const nextPage = currentPage + 1;
+    const totalPages = Math.max(1, Math.ceil(totalArticles / this.getItemsPerPage()));
+    if (nextPage > totalPages) {
+      return;
+    }
+
+    if (this.articlePageCache.has(this.getArticlePageCacheKey(nextPage, query))) {
+      return;
+    }
+
+    try {
+      await this.loadArticlePageAt(nextPage, {
+        prefetchAdjacent: false
+      });
+    } catch {
+      // Prefetch should never block the active interaction.
+    }
   }
 
   private async loadGroupsSafely(): Promise<FeedGroupDto[]> {
@@ -467,7 +577,7 @@ export class NasRssView extends ItemView {
         this.resetArticleScrollTop();
         this.state.currentPage = 1;
         this.state.selectedSource = `group:${group.id}`;
-        this.resetUnreadSession();
+        this.resetArticleCaches();
         void this.refresh();
       };
 
@@ -538,7 +648,7 @@ export class NasRssView extends ItemView {
       this.resetArticleScrollTop();
       this.state.currentPage = 1;
       this.state.selectedSource = source;
-      this.resetUnreadSession();
+      this.resetArticleCaches();
       void this.refresh();
     };
   }
@@ -552,7 +662,7 @@ export class NasRssView extends ItemView {
       this.resetArticleScrollTop();
       this.state.currentPage = 1;
       this.state.selectedSource = `feed:${feed.id}`;
-      this.resetUnreadSession();
+      this.resetArticleCaches();
       void this.refresh();
     };
     feedEl.ondragstart = (event) => {
@@ -637,7 +747,7 @@ export class NasRssView extends ItemView {
       this.state.searchQuery = searchInput.value;
       this.state.currentPage = 1;
       this.resetArticleScrollTop();
-      this.resetUnreadSession();
+      this.resetArticleCaches();
       void this.refresh();
     };
 
@@ -718,6 +828,7 @@ export class NasRssView extends ItemView {
       const cardEl = gridEl.createDiv({
         cls: `nas-rss-card ${article.isRead ? "is-read" : "is-unread"}`
       });
+      cardEl.dataset.articleId = article.id;
       cardEl.onclick = async () => {
         await this.openArticle(article.id, "webviewer");
       };
@@ -783,6 +894,8 @@ export class NasRssView extends ItemView {
         cls: `nas-rss-card-action ${article.isReadLater ? "is-active" : ""}`,
         text: article.isReadLater ? "後で読む解除" : "後で読む"
       });
+      readLaterButton.dataset.action = "read-later";
+      readLaterButton.disabled = this.readLaterInFlightIds.has(article.id);
       readLaterButton.onclick = async (event) => {
         event.stopPropagation();
         await this.toggleReadLater(article.id);
@@ -796,6 +909,7 @@ export class NasRssView extends ItemView {
         event.stopPropagation();
         await this.saveArticleAsNote(article.id);
       };
+      saveButton.dataset.action = "save";
     }
 
     window.setTimeout(() => {
@@ -831,9 +945,7 @@ export class NasRssView extends ItemView {
   }
 
   private getVisibleArticles(): ArticleDto[] {
-    return this.state.articles
-      .slice()
-      .sort((left, right) => new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime());
+    return this.state.articles.slice();
   }
 
   private getItemsPerPage(): number {
@@ -943,6 +1055,156 @@ export class NasRssView extends ItemView {
         containerEl.appendText(part);
       }
     }
+  }
+
+  private findArticleCard(articleId: string): HTMLElement | undefined {
+    return Array.from(this.containerEl.querySelectorAll<HTMLElement>(".nas-rss-card"))
+      .find((element) => element.dataset.articleId === articleId);
+  }
+
+  private updateCachedArticleState(
+    updater: (article: ArticleDto) => ArticleDto,
+    predicate: (article: ArticleDto) => boolean
+  ): void {
+    for (const [cacheKey, cachedPage] of this.articlePageCache.entries()) {
+      let didChange = false;
+      const nextArticles = cachedPage.articles.map((article) => {
+        if (!predicate(article)) {
+          return article;
+        }
+
+        didChange = true;
+        return updater(article);
+      });
+
+      if (didChange) {
+        this.articlePageCache.set(cacheKey, {
+          articles: nextArticles,
+          total: cachedPage.total
+        });
+      }
+    }
+  }
+
+  private setReadStateLocally(articleIds: string[], isRead: boolean): void {
+    if (articleIds.length === 0) {
+      return;
+    }
+
+    const idSet = new Set(articleIds);
+    this.state.articles = this.state.articles.map((article) =>
+      (idSet.has(article.id) ? { ...article, isRead } : article)
+    );
+
+    if (this.state.selectedSource === "unread") {
+      this.unreadSessionArticles = this.unreadSessionArticles.map((article) =>
+        (idSet.has(article.id) ? { ...article, isRead } : article)
+      );
+      this.rebuildUnreadSessionPages(this.getItemsPerPage());
+    } else {
+      this.updateCachedArticleState(
+        (article) => ({ ...article, isRead }),
+        (article) => idSet.has(article.id)
+      );
+    }
+  }
+
+  private syncArticleCard(articleId: string): void {
+    const article = this.state.articles.find((entry) => entry.id === articleId);
+    const cardEl = this.findArticleCard(articleId);
+    if (!article || !cardEl) {
+      return;
+    }
+
+    cardEl.toggleClass("is-read", article.isRead);
+    cardEl.toggleClass("is-unread", !article.isRead);
+
+    const readIndicatorEl = cardEl.querySelector<HTMLElement>(".nas-rss-read-indicator");
+    if (readIndicatorEl) {
+      readIndicatorEl.toggleClass("is-read", article.isRead);
+      readIndicatorEl.toggleClass("is-unread", !article.isRead);
+      readIndicatorEl.setAttribute("aria-label", article.isRead ? "Read" : "Unread");
+      readIndicatorEl.setAttribute("title", article.isRead ? "Read" : "Unread");
+    }
+
+    const readLaterButton = cardEl.querySelector<HTMLButtonElement>('button[data-action="read-later"]');
+    if (readLaterButton) {
+      readLaterButton.toggleClass("is-active", article.isReadLater);
+      readLaterButton.setText(article.isReadLater ? "後で読む解除" : "後で読む");
+      readLaterButton.disabled = this.readLaterInFlightIds.has(articleId);
+    }
+
+    const saveButton = cardEl.querySelector<HTMLButtonElement>('button[data-action="save"]');
+    if (saveButton) {
+      const isSaved = this.savedArticleIds.has(articleId);
+      saveButton.toggleClass("is-active", isSaved);
+      saveButton.setText(isSaved ? "保存済み" : "MD保存");
+    }
+  }
+
+  private queueReadStateChange(articleIds: string[], isRead: boolean, shouldRender = false): void {
+    const pendingIds = articleIds.filter((articleId) => {
+      const article = this.state.articles.find((entry) => entry.id === articleId);
+      return article && article.isRead !== isRead && !this.readInFlightIds.has(articleId);
+    });
+
+    if (pendingIds.length === 0) {
+      return;
+    }
+
+    pendingIds.forEach((articleId) => this.readInFlightIds.add(articleId));
+    this.setReadStateLocally(pendingIds, isRead);
+
+    if (shouldRender) {
+      this.render();
+    } else {
+      for (const articleId of pendingIds) {
+        this.syncArticleCard(articleId);
+      }
+    }
+
+    void this.plugin.apiClient.setReadBulk(pendingIds, isRead)
+      .catch((error) => {
+        this.setReadStateLocally(pendingIds, !isRead);
+        if (shouldRender) {
+          this.render();
+        } else {
+          for (const articleId of pendingIds) {
+            this.syncArticleCard(articleId);
+          }
+        }
+        new Notice(`既読更新に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+      })
+      .finally(() => {
+        pendingIds.forEach((articleId) => this.readInFlightIds.delete(articleId));
+      });
+  }
+
+  private async refreshArticlesOnly(): Promise<void> {
+    try {
+      const articlePage = await this.loadArticlePageAt(this.state.currentPage, {
+        useCache: false
+      });
+      this.state.articles = articlePage.articles;
+      this.state.totalArticles = articlePage.total;
+      this.state.error = undefined;
+
+      const normalizedPage = this.normalizePage(this.state.currentPage, this.state.totalArticles);
+      if (normalizedPage !== this.state.currentPage && this.state.totalArticles > 0) {
+        this.state.currentPage = normalizedPage;
+        const correctedPage = await this.loadArticlePageAt(this.state.currentPage, {
+          useCache: false
+        });
+        this.state.articles = correctedPage.articles;
+        this.state.totalArticles = correctedPage.total;
+      } else {
+        this.state.currentPage = normalizedPage;
+      }
+    } catch (error) {
+      this.state.error = error instanceof Error ? error.message : String(error);
+    }
+
+    this.render();
   }
 
   private toggleGroupCollapse(groupId: string): void {
@@ -1303,7 +1565,7 @@ export class NasRssView extends ItemView {
 
   private async handleServerRefresh(feedId?: string): Promise<void> {
     try {
-      this.resetUnreadSession();
+      this.resetArticleCaches();
       this.state.currentPage = 1;
       this.state.refreshJob = await this.plugin.apiClient.startRefresh(feedId);
       this.startRefreshPolling();
@@ -1378,7 +1640,7 @@ export class NasRssView extends ItemView {
         unreadOnly: true,
         query
       });
-      this.resetUnreadSession();
+      this.resetArticleCaches();
       this.state.currentPage = 1;
       new Notice(`${result.updatedCount} 件の未読を既読にしました。`);
       await this.refresh();
@@ -1398,14 +1660,21 @@ export class NasRssView extends ItemView {
 
     this.state.currentPage = Math.max(1, this.state.currentPage - 1);
     this.resetArticleScrollTop();
-    await this.refresh();
+    try {
+      const articlePage = await this.loadArticlePageAt(this.state.currentPage);
+      this.state.articles = articlePage.articles;
+      this.state.totalArticles = articlePage.total;
+      this.render();
+    } catch (error) {
+      new Notice(`ページ移動に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   private async moveToNextPage(currentPageArticles: ArticleDto[]): Promise<void> {
     if (this.state.selectedSource === "unread") {
       const nextPage = this.state.currentPage + 1;
       const limit = this.getItemsPerPage();
-      const query = this.state.searchQuery.trim() || undefined;
+      const query = this.getCurrentSearchQuery();
       await this.ensureUnreadSessionSnapshot(query, limit);
 
       if (!this.unreadSessionPages.has(nextPage)) {
@@ -1416,7 +1685,7 @@ export class NasRssView extends ItemView {
         .filter((article) => !article.isRead)
         .map((article) => article.id);
       if (unreadIds.length > 0) {
-        await this.applyReadState(unreadIds, true);
+        this.queueReadStateChange(unreadIds, true, false);
       }
 
       this.state.currentPage = nextPage;
@@ -1431,13 +1700,20 @@ export class NasRssView extends ItemView {
       .filter((article) => !article.isRead)
       .map((article) => article.id);
     if (unreadIds.length > 0) {
-      await this.applyReadState(unreadIds, true);
+      this.queueReadStateChange(unreadIds, true, false);
     }
 
     this.state.currentPage += 1;
     this.state.currentPage = this.normalizePage(this.state.currentPage, this.state.totalArticles);
     this.resetArticleScrollTop();
-    await this.refresh();
+    try {
+      const articlePage = await this.loadArticlePageAt(this.state.currentPage);
+      this.state.articles = articlePage.articles;
+      this.state.totalArticles = articlePage.total;
+      this.render();
+    } catch (error) {
+      new Notice(`ページ移動に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   private async openArticle(articleId: string, target: "webviewer" | "external"): Promise<void> {
@@ -1449,7 +1725,7 @@ export class NasRssView extends ItemView {
     this.plugin.setLastArticleScrollTop(this.articleScrollTop);
 
     if (!article.isRead) {
-      await this.markArticleRead(articleId, false);
+      this.queueReadStateChange([articleId], true, false);
     }
 
     if (target === "external") {
@@ -1467,16 +1743,48 @@ export class NasRssView extends ItemView {
 
   private async toggleReadLater(articleId: string): Promise<void> {
     const article = this.state.articles.find((entry) => entry.id === articleId);
-    if (!article) {
+    if (!article || this.readLaterInFlightIds.has(articleId)) {
       return;
     }
 
+    const nextReadLater = !article.isReadLater;
+    this.readLaterInFlightIds.add(articleId);
+    this.state.articles = this.state.articles.map((entry) =>
+      (entry.id === articleId ? { ...entry, isReadLater: nextReadLater } : entry)
+    );
+    this.updateCachedArticleState(
+      (entry) => ({ ...entry, isReadLater: nextReadLater }),
+      (entry) => entry.id === articleId
+    );
+    this.syncArticleCard(articleId);
+
     try {
-      const updated = await this.plugin.apiClient.setReadLater(articleId, !article.isReadLater);
+      const updated = await this.plugin.apiClient.setReadLater(articleId, nextReadLater);
       this.state.articles = this.state.articles.map((entry) => entry.id === articleId ? updated : entry);
-      this.render();
+      this.updateCachedArticleState(
+        () => updated,
+        (entry) => entry.id === articleId
+      );
+
+      if (this.state.selectedSource === "read-later" && !updated.isReadLater) {
+        await this.refreshArticlesOnly();
+        return;
+      }
+
+      this.syncArticleCard(articleId);
     } catch (error) {
+      this.state.articles = this.state.articles.map((entry) =>
+        (entry.id === articleId ? { ...entry, isReadLater: article.isReadLater } : entry)
+      );
+      this.updateCachedArticleState(
+        (entry) => ({ ...entry, isReadLater: article.isReadLater }),
+        (entry) => entry.id === articleId
+      );
+      this.syncArticleCard(articleId);
       new Notice(`後で読むの更新に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      this.readLaterInFlightIds.delete(articleId);
+      this.syncArticleCard(articleId);
     }
   }
 
@@ -1492,7 +1800,7 @@ export class NasRssView extends ItemView {
       const saved = await this.noteManager.saveArticleAsNote(fullArticle, feed, this.plugin.settings);
       if (saved) {
         this.savedArticleIds.add(articleId);
-        this.render();
+        this.syncArticleCard(articleId);
       }
     } catch (error) {
       new Notice(`Markdown 保存に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
@@ -1542,40 +1850,12 @@ export class NasRssView extends ItemView {
     }
   }
 
-  private async markArticleRead(articleId: string, shouldRender = true): Promise<void> {
-    const article = this.state.articles.find((entry) => entry.id === articleId);
-    if (!article || article.isRead || this.readInFlightIds.has(articleId)) {
-      return;
-    }
-
-    this.readInFlightIds.add(articleId);
-    try {
-      await this.applyReadState([articleId], true);
-      if (shouldRender) {
-        this.render();
-      }
-    } catch (error) {
-      new Notice(`既読更新に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      this.readInFlightIds.delete(articleId);
-    }
-  }
-
   private async applyReadState(articleIds: string[], isRead: boolean): Promise<void> {
     if (articleIds.length === 0) {
       return;
     }
 
     await this.plugin.apiClient.setReadBulk(articleIds, isRead);
-    const idSet = new Set(articleIds);
-    this.state.articles = this.state.articles
-      .map((article) => (idSet.has(article.id) ? { ...article, isRead } : article));
-
-    if (this.state.selectedSource === "unread") {
-      this.unreadSessionArticles = this.unreadSessionArticles
-        .map((article) => (idSet.has(article.id) ? { ...article, isRead } : article));
-      this.rebuildUnreadSessionPages(this.getItemsPerPage());
-      return;
-    }
+    this.setReadStateLocally(articleIds, isRead);
   }
 }

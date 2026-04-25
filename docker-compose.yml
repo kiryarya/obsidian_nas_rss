@@ -9,6 +9,7 @@ services:
       HOST: 0.0.0.0
       PORT: 43112
       RSS_SERVER_DATA_FILE: /data/rss-state.json
+      RSS_READ_RETENTION_DAYS: 7
     dns:
       - 8.8.8.8
       - 1.1.1.1

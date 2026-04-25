@@ -222,6 +222,11 @@ function toIsoDate(value: string | undefined, fallback: string): string {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed.toISOString();
 }
 
+function toTimestamp(value: string): number {
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
 function extractImageUrl(item: ParsedItem, articleUrl?: string): string | undefined {
   if (item.enclosure?.url && item.enclosure.type?.startsWith("image")) {
     return normalizeImageUrl(item.enclosure.url, articleUrl);
@@ -608,17 +613,25 @@ export class RssService {
       )
       : undefined;
 
-    const articles = state.articles
-      .filter((article) => (filters.feedId ? article.feedId === filters.feedId : true))
-      .filter((article) => (feedIdsInGroup ? feedIdsInGroup.has(article.feedId) : true))
-      .filter((article) => (filters.readOnly ? article.isRead : true))
-      .filter((article) => (filters.unreadOnly ? !article.isRead : true))
-      .filter((article) => (filters.readLaterOnly ? article.isReadLater : true))
-      .filter((article) => {
-        if (!normalizedQuery) {
-          return true;
-        }
+    const matchedArticles: Array<{ article: ArticleRecord; publishedAtTs: number }> = [];
+    for (const article of state.articles) {
+      if (filters.feedId && article.feedId !== filters.feedId) {
+        continue;
+      }
+      if (feedIdsInGroup && !feedIdsInGroup.has(article.feedId)) {
+        continue;
+      }
+      if (filters.readOnly && !article.isRead) {
+        continue;
+      }
+      if (filters.unreadOnly && article.isRead) {
+        continue;
+      }
+      if (filters.readLaterOnly && !article.isReadLater) {
+        continue;
+      }
 
+      if (normalizedQuery) {
         const searchable = [
           article.title,
           article.author,
@@ -629,18 +642,27 @@ export class RssService {
           .join(" ")
           .toLowerCase();
 
-        return searchable.includes(normalizedQuery);
-      })
-      .sort((left, right) => new Date(right.publishedAt).getTime() - new Date(left.publishedAt).getTime());
+        if (!searchable.includes(normalizedQuery)) {
+          continue;
+        }
+      }
+
+      matchedArticles.push({
+        article,
+        publishedAtTs: toTimestamp(article.publishedAt)
+      });
+    }
+
+    matchedArticles.sort((left, right) => right.publishedAtTs - left.publishedAtTs);
 
     const offset = Math.max(0, filters.offset ?? 0);
     const paged = typeof filters.limit === "number"
-      ? articles.slice(offset, offset + filters.limit)
-      : articles.slice(offset);
+      ? matchedArticles.slice(offset, offset + filters.limit)
+      : matchedArticles.slice(offset);
 
     return {
-      articles: paged,
-      total: articles.length
+      articles: paged.map((entry) => entry.article),
+      total: matchedArticles.length
     };
   }
 
@@ -1022,11 +1044,11 @@ export class RssService {
     const cutoffTime = now - this.readRetentionDays * 24 * 60 * 60 * 1000;
     await this.store.mutate((state) => {
       state.articles = state.articles.filter((article) => {
-        if (!article.isRead) {
+        if (article.isReadLater) {
           return true;
         }
 
-        return new Date(article.updatedAt).getTime() >= cutoffTime;
+        return new Date(article.publishedAt).getTime() >= cutoffTime;
       });
     });
     this.lastCleanupAt = now;
