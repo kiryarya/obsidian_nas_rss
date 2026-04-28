@@ -44,6 +44,7 @@ export interface ServerState {
   feeds: FeedRecord[];
   groups: FeedGroupRecord[];
   articles: ArticleRecord[];
+  readArticleIds: string[];
   settings: ServerSettings;
 }
 
@@ -86,6 +87,7 @@ export const DEFAULT_STATE: ServerState = {
   feeds: [],
   groups: [],
   articles: [],
+  readArticleIds: [],
   settings: {
     refreshIntervalMinutes: 30
   }

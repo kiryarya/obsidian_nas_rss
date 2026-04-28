@@ -948,6 +948,12 @@ export class RssService {
       article.isRead = isRead;
       article.updatedAt = nowIso();
       updated = { ...article };
+
+      if (isRead) {
+        state.readArticleIds = Array.from(new Set([...state.readArticleIds, articleId]));
+      } else {
+        state.readArticleIds = state.readArticleIds.filter((id) => id !== articleId);
+      }
     });
 
     return updated!;
@@ -958,6 +964,7 @@ export class RssService {
     let updatedCount = 0;
 
     await this.store.mutate((state) => {
+      const nextReadArticleIds = new Set(state.readArticleIds);
       for (const article of state.articles) {
         if (!uniqueIds.has(article.id)) {
           continue;
@@ -969,7 +976,15 @@ export class RssService {
         article.isRead = isRead;
         article.updatedAt = nowIso();
         updatedCount += 1;
+
+        if (isRead) {
+          nextReadArticleIds.add(article.id);
+        } else {
+          nextReadArticleIds.delete(article.id);
+        }
       }
+
+      state.readArticleIds = Array.from(nextReadArticleIds);
     });
 
     return { updatedCount };
@@ -1041,17 +1056,33 @@ export class RssService {
       return;
     }
 
-    const cutoffTime = now - this.readRetentionDays * 24 * 60 * 60 * 1000;
     await this.store.mutate((state) => {
+      const readArticleIds = new Set(state.readArticleIds);
+      for (const article of state.articles) {
+        if (article.isRead) {
+          readArticleIds.add(article.id);
+        }
+      }
+
       state.articles = state.articles.filter((article) => {
         if (article.isReadLater) {
           return true;
         }
 
-        return new Date(article.publishedAt).getTime() >= cutoffTime;
+        return !this.isExpiredByRetention(article.publishedAt, now);
       });
+      state.readArticleIds = Array.from(readArticleIds);
     });
     this.lastCleanupAt = now;
+  }
+
+  private isExpiredByRetention(publishedAt: string, now = Date.now()): boolean {
+    if (this.readRetentionDays <= 0) {
+      return false;
+    }
+
+    const cutoffTime = now - this.readRetentionDays * 24 * 60 * 60 * 1000;
+    return toTimestamp(publishedAt) < cutoffTime;
   }
 
   private async refreshSingleFeed(feedId: string): Promise<void> {
@@ -1090,6 +1121,8 @@ export class RssService {
         if (!mutableFeed) {
           return;
         }
+
+        const readArticleIds = new Set(mutableState.readArticleIds);
 
         mutableFeed.url = workingUrl;
         mutableFeed.title = parsed.title || mutableFeed.title;
@@ -1135,6 +1168,10 @@ export class RssService {
             continue;
           }
 
+          if (this.isExpiredByRetention(publishedAt)) {
+            continue;
+          }
+
           mutableState.articles.push({
             id: articleId,
             feedId,
@@ -1145,7 +1182,7 @@ export class RssService {
             snippet: item.contentSnippet,
             contentHtml: item["content:encoded"] ?? item.content,
             imageUrl,
-            isRead: false,
+            isRead: readArticleIds.has(articleId),
             isReadLater: false,
             fetchedAt,
             updatedAt: fetchedAt

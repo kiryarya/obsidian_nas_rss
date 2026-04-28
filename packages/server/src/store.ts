@@ -5,10 +5,22 @@ import { JSONFile } from "lowdb/node";
 import { DEFAULT_STATE, type ServerState } from "./types.js";
 
 function normalizeState(state: ServerState | null | undefined): ServerState {
+  const articles = Array.isArray(state?.articles) ? state.articles : [];
+  const readArticleIds = new Set(
+    [
+      ...(Array.isArray(state?.readArticleIds) ? state.readArticleIds : []),
+      ...articles
+        .filter((article) => article.isRead)
+        .map((article) => article.id)
+    ]
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+  );
+
   return {
     feeds: Array.isArray(state?.feeds) ? state.feeds : [],
     groups: Array.isArray(state?.groups) ? state.groups : [],
-    articles: Array.isArray(state?.articles) ? state.articles : [],
+    articles,
+    readArticleIds: Array.from(readArticleIds),
     settings: {
       refreshIntervalMinutes:
         typeof state?.settings?.refreshIntervalMinutes === "number" && Number.isFinite(state.settings.refreshIntervalMinutes)
